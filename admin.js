@@ -5,7 +5,7 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.4';
+window.BCF_VER.admin = '1.5';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
 let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
@@ -307,6 +307,29 @@ async function handleBatchPhotos(){
   renderAdminEmp(); // รูปอัปเดตในตัวแปรแล้ว ไม่ต้องโหลดใหม่
 }
 
+/* ---------- ซิงค์รูปจากโฟลเดอร์ Drive ---------- */
+async function syncPhotosFromDrive(){
+  if(!confirm('ซิงค์รูปจากโฟลเดอร์ Drive?\n\nต้องวางรูปในโฟลเดอร์ BCF_Leave_Photos และตั้งชื่อไฟล์เป็นรหัสพนักงาน (เช่น B003.jpg) ก่อน'))return;
+  const btn=$('syncDriveBtn'); btn.disabled=true; const old=btn.textContent; btn.textContent='⏳ กำลังซิงค์...';
+  try{
+    const r=await apiPost('syncPhotos',{pin:adminPin});
+    if(!r.ok) throw new Error(r.error||'ซิงค์ไม่สำเร็จ');
+    // โหลดรายชื่อใหม่เพื่อแสดงรูปที่อัปเดต
+    const res=await apiGet('employees',{admin:'1',pin:adminPin});
+    if(res.ok)adminEmployees=res.employees||[];
+    renderAdminEmp();
+    let msg='✅ ซิงค์สำเร็จ — อัปเดตรูป '+r.matched+' คน';
+    if(r.unmatched_files && r.unmatched_files.length){
+      msg+='\n\n⚠️ ไฟล์ที่ชื่อไม่ตรงรหัสพนักงาน ('+r.unmatched_files.length+'):\n'+r.unmatched_files.slice(0,15).join(', ');
+      if(r.unmatched_files.length>15) msg+=' ...';
+    }
+    if(r.folder_url) msg+='\n\nเปิดโฟลเดอร์: '+r.folder_url;
+    toast('ซิงค์รูปเสร็จ '+r.matched+' คน');
+    alert(msg);
+  }catch(err){toast(err.message,true);alert('❌ '+err.message);}
+  btn.disabled=false; btn.textContent=old;
+}
+
 /* ---------- ตั้งค่า Telegram ---------- */
 async function saveTelegram(){
   const btn=$('saveTgBtn'); btn.disabled=true; btn.textContent='บันทึก...';
@@ -342,6 +365,7 @@ $('leavesSearch').oninput=debounce(renderLeaves,180);
 $('exportBtn').onclick=exportLeavesCSV;
 $('addHolBtn').onclick=addHolidayAdmin;
 $('batchPhotoBtn').onclick=()=>{$('batchLog').innerHTML='';$('batchPhotos').value='';$('batchModal').classList.remove('hidden');};
+$('syncDriveBtn').onclick=syncPhotosFromDrive;
 $('batchClose').onclick=()=>$('batchModal').classList.add('hidden');
 $('batchPhotos').onchange=handleBatchPhotos;
 $('addEmpBtn').onclick=()=>openEmpModal(null);

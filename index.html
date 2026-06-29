@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BCF ระบบแจ้งลา — index.html — v1.5 — 2026-06-29 -->
+<!-- BCF ระบบแจ้งลา — index.html — v1.6 — 2026-06-29 -->
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -160,7 +160,9 @@
   <div class="adminBody">
     <div id="adminEmpPane">
       <button class="btn btn-primary btn-block" id="addEmpBtn" style="margin-bottom:10px">+ เพิ่มพนักงานใหม่</button>
-      <button class="btn btn-ghost btn-block" id="batchPhotoBtn" style="margin-bottom:14px">📷 อัปโหลดรูปหลายคนพร้อมกัน</button>
+      <button class="btn btn-ghost btn-block" id="batchPhotoBtn" style="margin-bottom:10px">📷 อัปโหลดรูปหลายคนพร้อมกัน</button>
+      <button class="btn btn-ghost btn-block" id="syncDriveBtn" style="margin-bottom:6px">🔄 ซิงค์รูปจากโฟลเดอร์ Drive</button>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5">เร็วสุด: วางรูปในโฟลเดอร์ Drive ชื่อ <b>BCF_Leave_Photos</b> ตั้งชื่อไฟล์เป็นรหัสพนักงาน (เช่น <code>B003.jpg</code>) แล้วกดปุ่มซิงค์</div>
       <div class="searchBar"><span class="si">🔎</span><input type="text" id="adminSearch" placeholder="ค้นหาพนักงาน" autocomplete="off"></div>
       <div id="adminEmpList"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
     </div>
@@ -253,6 +255,6 @@
 
 <script src="config.js?v=1.0"></script>
 <script src="app.js?v=1.2"></script>
-<script src="admin.js?v=1.4"></script>
+<script src="admin.js?v=1.5"></script>
 </body>
 </html>
