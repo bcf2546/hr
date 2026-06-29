@@ -5,7 +5,7 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.4';
+window.BCF_VER.app = '1.5';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
@@ -279,6 +279,9 @@ function showSuccess(res,p){
       '<div class="row"><span class="k">ประเภท</span><span class="v">'+esc(selectedType)+'</span></div>'+
       '<div class="row"><span class="k">สถานะ</span><span class="v">'+(stMap[res.filing_status]||'')+' '+esc(res.filing_status)+'</span></div>';
   }
+  if(res.pending_approval){
+    html = '<div class="row" style="background:var(--amber-bg);border:1.5px solid var(--amber-line);border-radius:9px;padding:10px;margin-bottom:8px"><span class="k" style="color:#8a5a00">🌴 ลาพักร้อน</span><span class="v" style="color:#8a5a00;font-weight:800">รออนุมัติจากหัวหน้า</span></div>' + html;
+  }
   $('successSummary').innerHTML=html;
   $('screenForm').classList.add('hidden'); $('screenSuccess').classList.remove('hidden'); window.scrollTo(0,0);
 }
@@ -294,10 +297,14 @@ async function loadHistory(){
     $('historyContainer').innerHTML=h.map(x=>{
       const c=x.filing_status.indexOf('ย้อนหลัง')>=0?'back':(x.filing_status.indexOf('กระทันหัน')>=0?'same':'adv');
       const cancelBtn=x.can_cancel?'<button class="btn btn-line btn-block" style="margin-top:10px;padding:10px" data-cancel="'+esc(x.leave_id)+'">✕ ยกเลิกใบลานี้ · ပယ်ဖျက်</button>':'';
+      const apMap={'รออนุมัติ':['#8a5a00','var(--amber-bg)','var(--amber-line)','⏳ รออนุมัติ'],'อนุมัติ':['#1a7f4b','#E2F5EB','#9ad9b8','✅ อนุมัติแล้ว'],'ไม่อนุมัติ':['#b3261e','#FDE7E7','#f2b8b5','❌ ไม่อนุมัติ']};
+      const ap=apMap[x.approval_status];
+      const apBadge=ap?'<div style="margin-top:8px;display:inline-block;font-size:12.5px;font-weight:800;color:'+ap[0]+';background:'+ap[1]+';border:1.5px solid '+ap[2]+';padding:5px 10px;border-radius:8px">'+ap[3]+'</div>':'';
       return '<div class="histItem '+c+'">'+
         '<div class="histTop"><span class="histDate">'+esc(x.leave_date)+'</span><span class="tag '+c+'">'+esc(x.filing_status)+'</span></div>'+
         '<div class="histMeta"><span><b>'+esc(x.leave_type)+'</b></span><span>⏰ '+esc(x.slots)+'</span><span>('+x.hours+' ชม.'+(x.is_full_day?' เต็มวัน':'')+')</span></div>'+
         (x.reason?'<div class="histReason">"'+esc(x.reason)+'"</div>':'')+
+        apBadge+
         '<div class="histReason" style="font-style:normal;margin-top:5px;font-size:12px;color:var(--muted-2)">แจ้งเมื่อ '+esc(x.filed_at)+'</div>'+
         cancelBtn+
       '</div>';
