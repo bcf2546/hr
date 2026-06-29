@@ -5,7 +5,7 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.5';
+window.BCF_VER.app = '1.6';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
@@ -24,6 +24,16 @@ function debounce(fn,ms){let t;return function(){const a=arguments,c=this;clearT
 function sizedUrl(u,size){return (u&&size)?u.replace(/=w\d+$/,'=w'+size):u;}
 const AM_SLOTS=TIME_SLOTS.slice(0,4);   // 08:00-12:00
 const PM_SLOTS=TIME_SLOTS.slice(4,8);   // 13:00-17:00
+function deviceInfo(){
+  const ua=navigator.userAgent||'';
+  let os='อื่นๆ';
+  if(/iPhone|iPad|iPod/i.test(ua))os='iPhone/iPad'; else if(/Android/i.test(ua))os='Android';
+  else if(/Windows/i.test(ua))os='Windows'; else if(/Mac/i.test(ua))os='Mac'; else if(/Linux/i.test(ua))os='Linux';
+  let br='อื่นๆ';
+  if(/Line/i.test(ua))br='LINE'; else if(/Edg/i.test(ua))br='Edge'; else if(/Chrome/i.test(ua))br='Chrome';
+  else if(/CriOS/i.test(ua))br='Chrome'; else if(/FxiOS|Firefox/i.test(ua))br='Firefox'; else if(/Safari/i.test(ua))br='Safari';
+  return os+' · '+br;
+}
 
 async function apiGet(action,params){
   const q=new URLSearchParams(Object.assign({action:action},params||{})).toString();
@@ -227,7 +237,7 @@ function buildLeavePayload(){
       '<div class="row"><span class="k">ช่วงวัน</span><span class="v">'+esc(from)+' ถึง '+esc(to)+'</span></div>'+
       '<div class="row"><span class="k">เวลา/วัน</span><span class="v">'+esc(slots.join(', '))+'</span></div>'+
       '<div class="row"><span class="k">ประเภท</span><span class="v">'+esc(selectedType)+'</span></div>';
-    return {payload:{emp_id:selectedEmp.emp_id, date_from:from, date_to:to, slots:slots, leave_type:selectedType, reason:reason}, summaryHTML:sm};
+    return {payload:{emp_id:selectedEmp.emp_id, date_from:from, date_to:to, slots:slots, leave_type:selectedType, reason:reason, device:deviceInfo()}, summaryHTML:sm};
   }
   const date=$('leaveDate').value;
   if(!date){toast('กรุณาเลือกวันที่',true);return null;}
@@ -242,7 +252,7 @@ function buildLeavePayload(){
     '<div class="row"><span class="k">จำนวน</span><span class="v">'+slots.length+' ชม.'+(slots.length>=8?' (เต็มวัน)':'')+'</span></div>'+
     '<div class="row"><span class="k">ประเภท</span><span class="v">'+esc(selectedType)+'</span></div>'+
     '<div class="row"><span class="k">สถานะ</span><span class="v">'+stTxt+'</span></div>';
-  return {payload:{emp_id:selectedEmp.emp_id, leave_date:date, slots:slots, leave_type:selectedType, reason:reason, override:override?'1':''}, summaryHTML:sm};
+  return {payload:{emp_id:selectedEmp.emp_id, leave_date:date, slots:slots, leave_type:selectedType, reason:reason, override:override?'1':'', device:deviceInfo()}, summaryHTML:sm};
 }
 function askConfirmSubmit(){
   const b=buildLeavePayload(); if(!b)return;
