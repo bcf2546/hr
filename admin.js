@@ -5,7 +5,7 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.3';
+window.BCF_VER.admin = '1.4';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
 let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
@@ -68,13 +68,13 @@ async function adminAction(act,id){
   if(act==='edit'){openEmpModal(e);return;}
   if(act==='hide'){
     const r=await apiPost('toggleVisible',{pin:adminPin,emp_id:id});
-    if(r.ok){e.visible=r.visible;renderAdminEmp();toast(r.visible?'แสดงชื่อแล้ว':'ซ่อนชื่อแล้ว');refreshPublicList();}else toast(r.error||'ผิดพลาด',true);
+    if(r.ok){e.visible=r.visible;renderAdminEmp();toast(r.visible?'แสดงชื่อแล้ว':'ซ่อนชื่อแล้ว');}else toast(r.error||'ผิดพลาด',true);
     return;
   }
   if(act==='del'){
     if(!confirm('ลบ "'+(e.name_th||e.name_mm)+'" ออกจากระบบ?\n(ประวัติการลายังเก็บไว้ แต่จะไม่แสดงในรายชื่อ)'))return;
     const r=await apiPost('deleteEmployee',{pin:adminPin,emp_id:id});
-    if(r.ok){adminEmployees=adminEmployees.filter(x=>x.emp_id!==id);renderAdminEmp();toast('ลบแล้ว');refreshPublicList();}else toast(r.error||'ผิดพลาด',true);
+    if(r.ok){adminEmployees=adminEmployees.filter(x=>x.emp_id!==id);renderAdminEmp();toast('ลบแล้ว');}else toast(r.error||'ผิดพลาด',true);
   }
 }
 async function refreshPublicList(){try{const res=await apiGet('employees');if(res.ok)allEmployees=res.employees||[];}catch(e){}}
@@ -106,7 +106,7 @@ async function saveEmp(){
     $('empModal').classList.add('hidden'); toast('บันทึกแล้ว');
     const res=await apiGet('employees',{admin:'1',pin:adminPin});
     if(res.ok)adminEmployees=res.employees||[];
-    renderAdminEmp(); refreshPublicList();
+    renderAdminEmp();
   }catch(err){toast(err.message,true);}
   btn.disabled=false; btn.textContent='บันทึก';
 }
@@ -295,10 +295,8 @@ async function handleBatchPhotos(){
     if(!emp){ line('⚠️ '+esc(f.name)+' — ไม่พบรหัส "'+esc(base)+'"','var(--amber)'); done++; continue; }
     try{
       const b64=await resizePhoto(f);
-      const up=await apiPost('uploadPhoto',{pin:adminPin,base64:b64,mime:'image/jpeg',filename:base+'.jpg'});
+      const up=await apiPost('setEmpPhoto',{pin:adminPin,emp_id:emp.emp_id,base64:b64,mime:'image/jpeg',filename:base+'.jpg'});
       if(!up.ok) throw new Error(up.error||'อัปโหลดไม่สำเร็จ');
-      const sv=await apiPost('updateEmployee',{pin:adminPin,emp_id:emp.emp_id,name_th:emp.name_th,name_mm:emp.name_mm,nationality:emp.nationality,note:emp.note,photo_id:up.photo_id});
-      if(!sv.ok) throw new Error(sv.error||'บันทึกไม่สำเร็จ');
       emp.photo_id=up.photo_id; if(up.photo_url)emp.photo_url=up.photo_url;
       ok++; line('✅ '+esc(emp.name_th||emp.name_mm)+' ('+esc(emp.emp_id)+')','var(--green)');
     }catch(err){ line('❌ '+esc(f.name)+' — '+esc(err.message),'var(--red)'); }
@@ -306,9 +304,7 @@ async function handleBatchPhotos(){
   }
   line('<b>เสร็จ — สำเร็จ '+ok+'/'+files.length+' รูป</b>');
   toast('อัปโหลดเสร็จ '+ok+'/'+files.length);
-  const res=await apiGet('employees',{admin:'1',pin:adminPin});
-  if(res.ok)adminEmployees=res.employees||[];
-  renderAdminEmp(); refreshPublicList();
+  renderAdminEmp(); // รูปอัปเดตในตัวแปรแล้ว ไม่ต้องโหลดใหม่
 }
 
 /* ---------- ตั้งค่า Telegram ---------- */
@@ -335,7 +331,7 @@ $('secretDot').onclick=openPinModal;
 $('pinCancel').onclick=()=>$('pinModal').classList.add('hidden');
 $('pinSubmit').onclick=submitPin;
 $('pinInput').onkeydown=e=>{if(e.key==='Enter')submitPin();};
-$('adminClose').onclick=()=>$('adminScreen').classList.add('hidden');
+$('adminClose').onclick=()=>{$('adminScreen').classList.add('hidden');refreshPublicList();};
 $('atEmp').onclick=()=>switchAdminTab('emp');
 $('atDash').onclick=()=>switchAdminTab('dash');
 $('atLeaves').onclick=()=>switchAdminTab('leaves');

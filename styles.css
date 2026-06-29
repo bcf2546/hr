@@ -1,5 +1,5 @@
 /* ============================================================
- * BCF ระบบแจ้งลา — styles.css — v1.2 — 2026-06-29
+ * BCF ระบบแจ้งลา — styles.css — v1.3 — 2026-06-29
  * สี/ดีไซน์ทั้งหมด (ปรับหน้าตาที่นี่)
  * ============================================================ */
 :root{
@@ -14,7 +14,7 @@
   --r:16px; --r-sm:11px;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0; touch-action:manipulation; -ms-touch-action:manipulation}
 body{font-family:'Sarabun','Noto Sans Myanmar',system-ui,sans-serif; background:var(--bg); color:var(--text);
   font-size:16px; line-height:1.5; min-height:100vh; -webkit-font-smoothing:antialiased}
 .mm{font-size:.82em; color:var(--muted); font-weight:400; display:block; line-height:1.35}
