@@ -5,7 +5,7 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.6';
+window.BCF_VER.admin = '1.7';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
 let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
@@ -299,6 +299,7 @@ async function handleBatchPhotos(){
       if(!up.ok) throw new Error(up.error||'อัปโหลดไม่สำเร็จ');
       emp.photo_id=up.photo_id; if(up.photo_url)emp.photo_url=up.photo_url;
       ok++; line('✅ '+esc(emp.name_th||emp.name_mm)+' ('+esc(emp.emp_id)+')','var(--green)');
+      renderAdminEmp(); // อัปเดตรูปทันทีต่อคน (เห็นความคืบหน้าสด)
     }catch(err){ line('❌ '+esc(f.name)+' — '+esc(err.message),'var(--red)'); }
     done++;
   }
