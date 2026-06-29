@@ -5,9 +5,10 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.0';
+window.BCF_VER.admin = '1.1';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
+let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
 
 /* ---------- เข้าสู่ระบบด้วย PIN ---------- */
 function openPinModal(){$('pinInput').value='';$('pinModal').classList.remove('hidden');setTimeout(()=>$('pinInput').focus(),100);}
@@ -28,11 +29,17 @@ function openAdmin(){
   switchAdminTab('emp'); renderAdminEmp();
 }
 function switchAdminTab(t){
-  $('atEmp').classList.toggle('active',t==='emp');$('atDash').classList.toggle('active',t==='dash');$('atSet').classList.toggle('active',t==='set');
+  $('atEmp').classList.toggle('active',t==='emp');
+  $('atDash').classList.toggle('active',t==='dash');
+  $('atLeaves').classList.toggle('active',t==='leaves');
+  $('atSet').classList.toggle('active',t==='set');
   $('adminEmpPane').classList.toggle('hidden',t!=='emp');
   $('adminDashPane').classList.toggle('hidden',t!=='dash');
+  $('adminLeavesPane').classList.toggle('hidden',t!=='leaves');
   $('adminSetPane').classList.toggle('hidden',t!=='set');
-  if(t==='dash'){if(!$('dashMonth').value){const d=new Date();$('dashMonth').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}loadDashboard();}
+  var d=new Date(), thisMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  if(t==='dash'){if(!$('dashMonth').value)$('dashMonth').value=thisMonth;loadDashboard();}
+  if(t==='leaves'){if(!$('leavesMonth').value)$('leavesMonth').value=thisMonth;loadLeaves();}
 }
 
 /* ---------- รายชื่อพนักงาน (แอดมิน) ---------- */
@@ -161,6 +168,61 @@ async function loadDashboard(){
   }catch(err){$('dashContent').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';}
 }
 
+/* ---------- จัดการใบลา (แก้สถานะ / ลบ) ---------- */
+async function loadLeaves(){
+  $('leavesContent').innerHTML='<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
+  try{
+    const res=await apiGet('leaves',{admin:'1',pin:adminPin,month:$('leavesMonth').value});
+    if(!res.ok) throw new Error(res.error||'load failed');
+    adminLeaves=res.leaves||[];
+    if(res.statuses) leaveStatuses=res.statuses;
+    renderLeaves();
+  }catch(err){$('leavesContent').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';}
+}
+function statusClass(s){return s.indexOf('ย้อนหลัง')>=0?'back':(s.indexOf('กระทันหัน')>=0?'same':'adv');}
+function renderLeaves(){
+  const q=$('leavesSearch').value.trim().toLowerCase();
+  let list=adminLeaves.slice();
+  if(q) list=list.filter(x=>(x.name||'').toLowerCase().includes(q)||(x.emp_id||'').toLowerCase().includes(q));
+  if(list.length===0){$('leavesContent').innerHTML='<div class="empEmpty">ไม่มีใบลาในเดือนนี้</div>';return;}
+  $('leavesContent').innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:10px">ทั้งหมด '+list.length+' ใบ · แก้สถานะได้จากเมนูดรอปดาวน์</div>'+
+  list.map(x=>{
+    const c=statusClass(x.filing_status);
+    const opts=leaveStatuses.map(s=>'<option value="'+esc(s)+'"'+(s===x.filing_status?' selected':'')+'>'+esc(s)+'</option>').join('');
+    const flag=x.nationality==='MM'?'🇲🇲':'🇹🇭';
+    return '<div class="histItem '+c+'">'+
+      '<div class="histTop"><span class="histDate">'+esc(x.leave_date)+'</span><span class="tag '+c+'">'+esc(x.filing_status)+'</span></div>'+
+      '<div class="histMeta"><span><b>'+flag+' '+esc(x.name)+'</b> ('+esc(x.emp_id)+')</span></div>'+
+      '<div class="histMeta" style="margin-top:3px"><span><b>'+esc(x.leave_type)+'</b></span><span>⏰ '+esc(x.slots)+'</span><span>('+x.hours+' ชม.'+(x.is_full_day?' เต็มวัน':'')+')</span></div>'+
+      (x.reason?'<div class="histReason">"'+esc(x.reason)+'"</div>':'')+
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">'+
+        '<span style="font-size:13px;color:var(--muted)">เปลี่ยนสถานะ:</span>'+
+        '<select class="leaveStatusSel" data-id="'+esc(x.leave_id)+'" style="flex:1;min-width:160px;padding:9px;border:2px solid var(--line);border-radius:9px;background:#fff;color:var(--text)">'+opts+'</select>'+
+        '<button class="miniBtn del" data-del="'+esc(x.leave_id)+'">ลบใบนี้</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  $('leavesContent').querySelectorAll('.leaveStatusSel').forEach(sel=>{sel.onchange=()=>changeLeaveStatus(sel.dataset.id,sel.value);});
+  $('leavesContent').querySelectorAll('[data-del]').forEach(b=>{b.onclick=()=>deleteLeaveAdmin(b.dataset.del);});
+}
+async function changeLeaveStatus(leaveId,status){
+  try{
+    const r=await apiPost('updateLeaveStatus',{pin:adminPin,leave_id:leaveId,status:status});
+    if(r.ok){
+      const x=adminLeaves.find(l=>l.leave_id===leaveId); if(x)x.filing_status=status;
+      renderLeaves(); toast('เปลี่ยนสถานะแล้ว ✓');
+    }else toast(r.error||'ผิดพลาด',true);
+  }catch(err){toast('ผิดพลาด',true);}
+}
+async function deleteLeaveAdmin(leaveId){
+  if(!confirm('ลบใบลานี้ออกจากระบบ?\n(ลบถาวร ใช้เมื่อกรอกผิดเท่านั้น)'))return;
+  try{
+    const r=await apiPost('deleteLeave',{pin:adminPin,leave_id:leaveId});
+    if(r.ok){adminLeaves=adminLeaves.filter(l=>l.leave_id!==leaveId);renderLeaves();toast('ลบใบลาแล้ว');}
+    else toast(r.error||'ผิดพลาด',true);
+  }catch(err){toast('ผิดพลาด',true);}
+}
+
 /* ---------- ตั้งค่า Telegram ---------- */
 async function saveTelegram(){
   const btn=$('saveTgBtn'); btn.disabled=true; btn.textContent='บันทึก...';
@@ -188,8 +250,11 @@ $('pinInput').onkeydown=e=>{if(e.key==='Enter')submitPin();};
 $('adminClose').onclick=()=>$('adminScreen').classList.add('hidden');
 $('atEmp').onclick=()=>switchAdminTab('emp');
 $('atDash').onclick=()=>switchAdminTab('dash');
+$('atLeaves').onclick=()=>switchAdminTab('leaves');
 $('atSet').onclick=()=>switchAdminTab('set');
 $('adminSearch').oninput=renderAdminEmp;
+$('leavesMonth').onchange=loadLeaves;
+$('leavesSearch').oninput=renderLeaves;
 $('addEmpBtn').onclick=()=>openEmpModal(null);
 $('empCancel').onclick=()=>$('empModal').classList.add('hidden');
 $('empSave').onclick=saveEmp;

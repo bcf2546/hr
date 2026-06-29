@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BCF ระบบแจ้งลา — index.html — v1.0 — 2026-06-29 -->
+<!-- BCF ระบบแจ้งลา — index.html — v1.1 — 2026-06-29 -->
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -128,6 +128,7 @@
   <div class="adminTabs">
     <button class="aTab active" id="atEmp">พนักงาน</button>
     <button class="aTab" id="atDash">สรุปการลา</button>
+    <button class="aTab" id="atLeaves">ใบลา</button>
     <button class="aTab" id="atSet">ตั้งค่า</button>
   </div>
   <div class="adminBody">
@@ -139,6 +140,11 @@
     <div id="adminDashPane" class="hidden">
       <div class="field"><label>เลือกเดือน</label><input type="month" id="dashMonth"></div>
       <div id="dashContent"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
+    </div>
+    <div id="adminLeavesPane" class="hidden">
+      <div class="field"><label>เลือกเดือน</label><input type="month" id="leavesMonth"></div>
+      <div class="searchBar"><span class="si">🔎</span><input type="text" id="leavesSearch" placeholder="ค้นหาชื่อพนักงาน" autocomplete="off"></div>
+      <div id="leavesContent"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
     </div>
     <div id="adminSetPane" class="hidden">
       <div class="fblock">
@@ -183,6 +189,6 @@
 <!-- โหลดตามลำดับ: config → app → admin (เวลาแก้ไฟล์ บวกเลข ?v=) -->
 <script src="config.js?v=1.0"></script>
 <script src="app.js?v=1.0"></script>
-<script src="admin.js?v=1.0"></script>
+<script src="admin.js?v=1.1"></script>
 </body>
 </html>
