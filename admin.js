@@ -5,7 +5,7 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.2';
+window.BCF_VER.admin = '1.3';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
 let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
@@ -54,7 +54,7 @@ function renderAdminEmp(){
     const nm=e.name_th||e.name_mm;
     const flag=e.nationality==='MM'?'🇲🇲':'🇹🇭';
     const vis=e.visible?'<span class="pill">แสดง</span>':'<span class="pill off">ซ่อน</span>';
-    return '<div class="adminRow">'+avatarHTML('ra',nm,e.photo_url,'')+
+    return '<div class="adminRow">'+avatarHTML('ra',nm,e.photo_url,'',120)+
       '<div class="rn"><b>'+esc(nm)+'</b><small>'+flag+' '+esc(e.emp_id)+(e.note?' · '+esc(e.note):'')+' '+vis+'</small></div>'+
       '<button class="miniBtn" data-act="edit" data-id="'+esc(e.emp_id)+'">แก้</button>'+
       '<button class="miniBtn hide" data-act="hide" data-id="'+esc(e.emp_id)+'">'+(e.visible?'ซ่อน':'แสดง')+'</button>'+
@@ -340,9 +340,9 @@ $('atEmp').onclick=()=>switchAdminTab('emp');
 $('atDash').onclick=()=>switchAdminTab('dash');
 $('atLeaves').onclick=()=>switchAdminTab('leaves');
 $('atSet').onclick=()=>switchAdminTab('set');
-$('adminSearch').oninput=renderAdminEmp;
+$('adminSearch').oninput=debounce(renderAdminEmp,180);
 $('leavesMonth').onchange=loadLeaves;
-$('leavesSearch').oninput=renderLeaves;
+$('leavesSearch').oninput=debounce(renderLeaves,180);
 $('exportBtn').onclick=exportLeavesCSV;
 $('addHolBtn').onclick=addHolidayAdmin;
 $('batchPhotoBtn').onclick=()=>{$('batchLog').innerHTML='';$('batchPhotos').value='';$('batchModal').classList.remove('hidden');};

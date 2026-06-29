@@ -5,7 +5,7 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.1';
+window.BCF_VER.app = '1.2';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
@@ -20,6 +20,8 @@ function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMo
 function avatarColor(name){let h=0;for(let i=0;i<(name||'').length;i++)h=name.charCodeAt(i)+((h<<5)-h);return 'hsl('+(Math.abs(h)%360)+',55%,52%)';}
 function initials(name){const n=(name||'?').trim();return n.charAt(0)||'?';}
 function toast(msg,isErr){const t=$('toast');t.textContent=msg;t.className='toast show'+(isErr?' err':'');clearTimeout(t._t);t._t=setTimeout(()=>{t.className='toast';},2600);}
+function debounce(fn,ms){let t;return function(){const a=arguments,c=this;clearTimeout(t);t=setTimeout(()=>fn.apply(c,a),ms);};}
+function sizedUrl(u,size){return (u&&size)?u.replace(/=w\d+$/,'=w'+size):u;}
 
 async function apiGet(action,params){
   const q=new URLSearchParams(Object.assign({action:action},params||{})).toString();
@@ -40,9 +42,10 @@ function imgErr(img){
   if(img.id) d.id=img.id;
   img.replaceWith(d);
 }
-function avatarHTML(cls,name,photoUrl,id){
+function avatarHTML(cls,name,photoUrl,id,size){
   const idAttr=id?(' id="'+id+'"'):'';
-  if(photoUrl) return '<img class="'+cls+'"'+idAttr+' src="'+esc(photoUrl)+'" loading="lazy" data-nm="'+esc(name)+'" onerror="imgErr(this)">';
+  const url=sizedUrl(photoUrl,size);
+  if(url) return '<img class="'+cls+'"'+idAttr+' src="'+esc(url)+'" loading="lazy" decoding="async" data-nm="'+esc(name)+'" onerror="imgErr(this)">';
   return '<div class="'+cls+'"'+idAttr+' style="background:'+avatarColor(name)+'">'+esc(initials(name))+'</div>';
 }
 
@@ -72,7 +75,7 @@ function renderEmployees(){
   if(list.length===0){$('empContainer').innerHTML='<div class="empEmpty">ไม่พบรายชื่อ'+(q?' "'+esc(q)+'"':'')+'</div>';return;}
   $('empContainer').innerHTML='<div class="empGrid">'+list.map(e=>{
     const nm=nameFor(e,currentNat), sub=subFor(e,currentNat);
-    return '<button class="empCard" data-id="'+esc(e.emp_id)+'">'+avatarHTML('avatar',nm,e.photo_url,'')+
+    return '<button class="empCard" data-id="'+esc(e.emp_id)+'">'+avatarHTML('avatar',nm,e.photo_url,'',160)+
       '<div class="nm">'+esc(nm)+(sub?'<small>'+esc(sub)+'</small>':'')+'</div></button>';
   }).join('')+'</div>';
   $('empContainer').querySelectorAll('.empCard').forEach(c=>{c.onclick=()=>openConfirm(c.dataset.id);});
@@ -83,7 +86,7 @@ function openConfirm(empId){
   const e=allEmployees.find(x=>x.emp_id===empId); if(!e) return;
   selectedEmp=e;
   const nm=nameFor(e,currentNat), sub=subFor(e,currentNat);
-  $('cmAvatar').outerHTML=avatarHTML('bigAvatar',nm,e.photo_url,'cmAvatar');
+  $('cmAvatar').outerHTML=avatarHTML('bigAvatar',nm,e.photo_url,'cmAvatar',300);
   $('cmName').innerHTML=esc(nm)+(sub?'<small>'+esc(sub)+'</small>':'');
   $('confirmModal').classList.remove('hidden');
 }
@@ -95,7 +98,7 @@ function gotoForm(){
   $('screenSuccess').classList.add('hidden');
   $('screenForm').classList.remove('hidden');
   const e=selectedEmp, nm=nameFor(e,e.nationality);
-  $('pbAvatar').outerHTML=avatarHTML('pa',nm,e.photo_url,'pbAvatar');
+  $('pbAvatar').outerHTML=avatarHTML('pa',nm,e.photo_url,'pbAvatar',120);
   $('pbName').textContent=nm;
   $('pbSub').textContent=e.emp_id+(e.name_mm&&e.nationality==='MM'?' · '+e.name_th:'');
   resetForm(); switchSubTab('leave'); window.scrollTo(0,0);
@@ -280,7 +283,7 @@ async function cancelMyLeave(leaveId){
 /* ---------- ผูกปุ่มฝั่งพนักงาน ---------- */
 $('tabTH').onclick=()=>{currentNat='TH';$('tabTH').classList.add('active');$('tabMM').classList.remove('active');renderEmployees();};
 $('tabMM').onclick=()=>{currentNat='MM';$('tabMM').classList.add('active');$('tabTH').classList.remove('active');renderEmployees();};
-$('searchInput').oninput=renderEmployees;
+$('searchInput').oninput=debounce(renderEmployees,180);
 $('refreshBtn').onclick=()=>{loadEmployees();toast('รีเฟรชแล้ว');};
 $('cmCancel').onclick=()=>$('confirmModal').classList.add('hidden');
 $('cmConfirm').onclick=gotoForm;
