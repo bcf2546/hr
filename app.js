@@ -5,11 +5,13 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.0';
+window.BCF_VER.app = '1.1';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
-let selectedSlots = new Set(), selectedType = 'ลากิจ', sundayWork = false;
+let selectedSlots = new Set(), selectedType = 'ลากิจ', override = false;
+let dayMode = 'single';          // 'single' | 'range'
+let holidayMap = {};             // 'yyyy-MM-dd' -> ชื่อวันหยุด
 
 /* ---------- Helpers (ใช้ร่วมกับ admin.js) ---------- */
 const $ = id => document.getElementById(id);
@@ -50,6 +52,7 @@ function subFor(e,nat){return nat==='MM'?(e.name_mm?e.name_th:''):'';}
 /* ---------- โหลด + แสดงรายชื่อ ---------- */
 async function loadEmployees(){
   $('empContainer').innerHTML='<div class="loading"><div class="spinner"></div>กำลังโหลดรายชื่อ...</div>';
+  loadHolidays();
   try{
     const res=await apiGet('employees');
     if(!res.ok) throw new Error(res.error||'load failed');
@@ -98,10 +101,12 @@ function gotoForm(){
   resetForm(); switchSubTab('leave'); window.scrollTo(0,0);
 }
 function resetForm(){
-  selectedSlots.clear(); selectedType='ลากิจ'; sundayWork=false;
+  selectedSlots.clear(); selectedType='ลากิจ'; override=false; pendingPayload=null;
   $('leaveDate').value=todayStr(); $('reasonInput').value='';
+  $('dateFrom').value=todayStr(); $('dateTo').value=todayStr();
   $('leaveTypeChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.type==='ลากิจ'));
-  renderTimeline(); updateHourTotal(); updateStatus();
+  setDayMode('single');
+  renderTimeline(); updateHourTotal();
 }
 
 /* ---------- ไทม์ไลน์เวลา ---------- */
@@ -121,20 +126,44 @@ function updateHourTotal(){
   el.className='hourTotal'+(n===0?' zero':'');
 }
 
-/* ---------- สถานะการกรอก + วันอาทิตย์ ---------- */
+/* ---------- วันหยุดบริษัท ---------- */
+async function loadHolidays(){
+  try{ const r=await apiGet('holidays'); if(r.ok){ holidayMap={}; (r.holidays||[]).forEach(h=>{holidayMap[h.date]=h.name;}); } }catch(e){}
+}
+
+/* ---------- โหมดวันเดียว/หลายวัน ---------- */
+function setDayMode(m){
+  dayMode=m;
+  $('modeSingle').classList.toggle('active',m==='single');
+  $('modeRange').classList.toggle('active',m==='range');
+  $('singleDateWrap').classList.toggle('hidden',m!=='single');
+  $('rangeDateWrap').classList.toggle('hidden',m!=='range');
+  updateStatus();
+}
+
+/* ---------- สถานะการกรอก + วันอาทิตย์/วันหยุด ---------- */
+function overrideBox(th,mm){
+  return '<div class="sundayBox"><div class="sw-txt">'+th+'<span class="mm" style="color:inherit">'+mm+'</span></div><label class="switch"><input type="checkbox" id="daySwitch"><span class="slider"></span></label></div>';
+}
 function updateStatus(){
-  const d=$('leaveDate').value, sw=$('statusWrap'), suw=$('sundayWrap');
+  const sw=$('statusWrap'), suw=$('sundayWrap');
+  if(dayMode==='range'){ sw.innerHTML=''; suw.innerHTML=''; override=false; return; }
+  const d=$('leaveDate').value;
   if(!d){sw.innerHTML='';suw.innerHTML='';return;}
   const t=todayStr(); let cls,txt,mm;
   if(d>t){cls='st-adv';txt='ลาล่วงหน้า';mm='ကြိုတင်ခွင့်';}
   else if(d===t){cls='st-same';txt='ลากระทันหัน (วันนี้)';mm='ယနေ့ ခွင့်';}
   else{cls='st-back';txt='ลาย้อนหลัง';mm='နောက်ကြောင်းပြန် ခွင့်';}
   sw.innerHTML='<div class="statusBadge '+cls+'"><span class="st-dot"></span>'+txt+' · <span style="font-weight:500">'+mm+'</span></div>';
-  const dt=new Date(d+'T00:00:00');
-  if(dt.getDay()===0){
-    suw.innerHTML='<div class="sundayBox"><div class="sw-txt">วันนี้เป็น<b>วันอาทิตย์</b> ปกติเป็นวันหยุด<br>เปิดสวิตช์ถ้าวันนี้ต้องมาทำงาน<span class="mm" style="color:inherit">တနင်္ဂနွေ အလုပ်ဆင်းရက်ဖြစ်ရင် ဖွင့်ပါ</span></div><label class="switch"><input type="checkbox" id="sundaySwitch"'+(sundayWork?' checked':'')+'><span class="slider"></span></label></div>';
-    $('sundaySwitch').onchange=ev=>{sundayWork=ev.target.checked;};
-  }else{suw.innerHTML='';sundayWork=false;}
+  const dt=new Date(d+'T00:00:00'), hol=holidayMap[d];
+  override=false;
+  if(hol){
+    suw.innerHTML=overrideBox('วันนี้เป็น<b>วันหยุด ('+esc(hol)+')</b> ปกติไม่ต้องลา<br>เปิดสวิตช์ถ้าวันนี้ต้องมาทำงาน','ဒီနေ့ ပိတ်ရက်ဖြစ်ရင် ဖွင့်ပါ');
+    $('daySwitch').onchange=ev=>{override=ev.target.checked;};
+  } else if(dt.getDay()===0){
+    suw.innerHTML=overrideBox('วันนี้เป็น<b>วันอาทิตย์</b> ปกติเป็นวันหยุด<br>เปิดสวิตช์ถ้าวันนี้ต้องมาทำงาน','တနင်္ဂနွေ ဆင်းရင် ဖွင့်ပါ');
+    $('daySwitch').onchange=ev=>{override=ev.target.checked;};
+  } else { suw.innerHTML=''; }
 }
 
 /* ---------- แท็บย่อย ---------- */
@@ -146,35 +175,78 @@ function switchSubTab(which){
   if(which==='history') loadHistory();
 }
 
-/* ---------- ส่งใบลา ---------- */
-async function submitLeave(){
-  const date=$('leaveDate').value;
-  if(!date){toast('กรุณาเลือกวันที่',true);return;}
-  if(selectedSlots.size===0){toast('กรุณาเลือกช่วงเวลาที่ลา',true);return;}
-  const dt=new Date(date+'T00:00:00');
-  if(dt.getDay()===0 && !sundayWork){toast('วันอาทิตย์เป็นวันหยุด — เปิดสวิตช์ถ้าต้องมาทำงาน',true);return;}
-  const btn=$('submitBtn'); btn.disabled=true; const old=btn.innerHTML; btn.innerHTML='กำลังส่ง...';
-  try{
-    const res=await apiPost('submitLeave',{emp_id:selectedEmp.emp_id, leave_date:date, slots:[...selectedSlots], leave_type:selectedType, reason:$('reasonInput').value.trim()});
-    if(!res.ok) throw new Error(res.error||'ส่งไม่สำเร็จ');
-    showSuccess(res,date);
-  }catch(err){toast(err.message,true); btn.disabled=false; btn.innerHTML=old;}
-}
-function showSuccess(res,date){
-  $('submitBtn').disabled=false; $('submitBtn').innerHTML='ส่งใบลา <span class="sub">ခွင့်တင်မည်</span>';
-  const stMap={'ลาล่วงหน้า':'🟢','ลากระทันหัน (วันเดียวกัน)':'🟡','ลาย้อนหลัง':'🔴'};
+/* ---------- ส่งใบลา (มีป๊อปอัพยืนยันก่อน) ---------- */
+let pendingPayload=null;
+function buildLeavePayload(){
+  if(selectedSlots.size===0){toast('กรุณาเลือกช่วงเวลาที่ลา',true);return null;}
   const slots=[...selectedSlots].sort((a,b)=>TIME_SLOTS.indexOf(a)-TIME_SLOTS.indexOf(b));
-  $('successSummary').innerHTML=
-    '<div class="row"><span class="k">ชื่อ</span><span class="v">'+esc(res.name||selectedEmp.name_th)+'</span></div>'+
+  const reason=$('reasonInput').value.trim();
+  const nm=nameFor(selectedEmp,selectedEmp.nationality);
+  if(dayMode==='range'){
+    const from=$('dateFrom').value, to=$('dateTo').value;
+    if(!from||!to){toast('กรุณาเลือกช่วงวัน (จาก-ถึง)',true);return null;}
+    if(to<from){toast('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม',true);return null;}
+    const sm='<div class="row"><span class="k">ชื่อ</span><span class="v">'+esc(nm)+'</span></div>'+
+      '<div class="row"><span class="k">ช่วงวัน</span><span class="v">'+esc(from)+' ถึง '+esc(to)+'</span></div>'+
+      '<div class="row"><span class="k">เวลา/วัน</span><span class="v">'+esc(slots.join(', '))+'</span></div>'+
+      '<div class="row"><span class="k">ประเภท</span><span class="v">'+esc(selectedType)+'</span></div>';
+    return {payload:{emp_id:selectedEmp.emp_id, date_from:from, date_to:to, slots:slots, leave_type:selectedType, reason:reason}, summaryHTML:sm};
+  }
+  const date=$('leaveDate').value;
+  if(!date){toast('กรุณาเลือกวันที่',true);return null;}
+  const dt=new Date(date+'T00:00:00');
+  if(holidayMap[date] && !override){toast('วันนี้เป็นวันหยุด ('+holidayMap[date]+') — เปิดสวิตช์ถ้าต้องมาทำงาน',true);return null;}
+  if(dt.getDay()===0 && !override){toast('วันอาทิตย์เป็นวันหยุด — เปิดสวิตช์ถ้าต้องมาทำงาน',true);return null;}
+  const t=todayStr();
+  const stTxt=date>t?'🟢 ลาล่วงหน้า':(date===t?'🟡 ลากระทันหัน (วันนี้)':'🔴 ลาย้อนหลัง');
+  const sm='<div class="row"><span class="k">ชื่อ</span><span class="v">'+esc(nm)+'</span></div>'+
     '<div class="row"><span class="k">วันที่ลา</span><span class="v">'+esc(date)+'</span></div>'+
     '<div class="row"><span class="k">เวลา</span><span class="v">'+esc(slots.join(', '))+'</span></div>'+
-    '<div class="row"><span class="k">จำนวน</span><span class="v">'+res.hours+' ชม.'+(res.is_full_day?' (เต็มวัน)':'')+'</span></div>'+
+    '<div class="row"><span class="k">จำนวน</span><span class="v">'+slots.length+' ชม.'+(slots.length>=8?' (เต็มวัน)':'')+'</span></div>'+
     '<div class="row"><span class="k">ประเภท</span><span class="v">'+esc(selectedType)+'</span></div>'+
-    '<div class="row"><span class="k">สถานะ</span><span class="v">'+(stMap[res.filing_status]||'')+' '+esc(res.filing_status)+'</span></div>';
+    '<div class="row"><span class="k">สถานะ</span><span class="v">'+stTxt+'</span></div>';
+  return {payload:{emp_id:selectedEmp.emp_id, leave_date:date, slots:slots, leave_type:selectedType, reason:reason, override:override?'1':''}, summaryHTML:sm};
+}
+function askConfirmSubmit(){
+  const b=buildLeavePayload(); if(!b)return;
+  pendingPayload=b.payload;
+  $('confirmSummary').innerHTML=b.summaryHTML;
+  $('confirmSubmitModal').classList.remove('hidden');
+}
+async function doSubmit(){
+  $('confirmSubmitModal').classList.add('hidden');
+  const p=pendingPayload; if(!p)return;
+  const btn=$('submitBtn'); btn.disabled=true; const old=btn.innerHTML; btn.innerHTML='กำลังส่ง...';
+  try{
+    const res=await apiPost('submitLeave', p);
+    if(!res.ok) throw new Error(res.error||'ส่งไม่สำเร็จ');
+    showSuccess(res,p);
+  }catch(err){toast(err.message,true);}
+  btn.disabled=false; btn.innerHTML=old; pendingPayload=null;
+}
+function showSuccess(res,p){
+  const stMap={'ลาล่วงหน้า':'🟢','ลากระทันหัน (วันเดียวกัน)':'🟡','ลาย้อนหลัง':'🔴'};
+  let html;
+  if(res.multi){
+    const dates=(res.created||[]).map(c=>c.date).join(', ');
+    html='<div class="row"><span class="k">ผลการลา</span><span class="v">สำเร็จ '+res.created_count+' วัน</span></div>'+
+      '<div class="row"><span class="k">วันที่ลา</span><span class="v">'+esc(dates)+'</span></div>'+
+      '<div class="row"><span class="k">เวลา/วัน</span><span class="v">'+res.hours_each+' ชม.</span></div>'+
+      (res.skipped&&res.skipped.length?('<div class="row"><span class="k">ข้าม</span><span class="v">'+res.skipped.length+' วัน (หยุด/ซ้ำ)</span></div>'):'');
+  } else {
+    const slots=[...selectedSlots].sort((a,b)=>TIME_SLOTS.indexOf(a)-TIME_SLOTS.indexOf(b));
+    html='<div class="row"><span class="k">ชื่อ</span><span class="v">'+esc(res.name||selectedEmp.name_th)+'</span></div>'+
+      '<div class="row"><span class="k">วันที่ลา</span><span class="v">'+esc((p&&p.leave_date)||'')+'</span></div>'+
+      '<div class="row"><span class="k">เวลา</span><span class="v">'+esc(slots.join(', '))+'</span></div>'+
+      '<div class="row"><span class="k">จำนวน</span><span class="v">'+res.hours+' ชม.'+(res.is_full_day?' (เต็มวัน)':'')+'</span></div>'+
+      '<div class="row"><span class="k">ประเภท</span><span class="v">'+esc(selectedType)+'</span></div>'+
+      '<div class="row"><span class="k">สถานะ</span><span class="v">'+(stMap[res.filing_status]||'')+' '+esc(res.filing_status)+'</span></div>';
+  }
+  $('successSummary').innerHTML=html;
   $('screenForm').classList.add('hidden'); $('screenSuccess').classList.remove('hidden'); window.scrollTo(0,0);
 }
 
-/* ---------- ประวัติของฉัน ---------- */
+/* ---------- ประวัติของฉัน (+ ยกเลิกใบลา) ---------- */
 async function loadHistory(){
   $('historyContainer').innerHTML='<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
   try{
@@ -184,14 +256,25 @@ async function loadHistory(){
     if(h.length===0){$('historyContainer').innerHTML='<div class="empEmpty">ยังไม่มีประวัติการลา</div>';return;}
     $('historyContainer').innerHTML=h.map(x=>{
       const c=x.filing_status.indexOf('ย้อนหลัง')>=0?'back':(x.filing_status.indexOf('กระทันหัน')>=0?'same':'adv');
+      const cancelBtn=x.can_cancel?'<button class="btn btn-line btn-block" style="margin-top:10px;padding:10px" data-cancel="'+esc(x.leave_id)+'">✕ ยกเลิกใบลานี้ · ပယ်ဖျက်</button>':'';
       return '<div class="histItem '+c+'">'+
         '<div class="histTop"><span class="histDate">'+esc(x.leave_date)+'</span><span class="tag '+c+'">'+esc(x.filing_status)+'</span></div>'+
         '<div class="histMeta"><span><b>'+esc(x.leave_type)+'</b></span><span>⏰ '+esc(x.slots)+'</span><span>('+x.hours+' ชม.'+(x.is_full_day?' เต็มวัน':'')+')</span></div>'+
         (x.reason?'<div class="histReason">"'+esc(x.reason)+'"</div>':'')+
         '<div class="histReason" style="font-style:normal;margin-top:5px;font-size:12px;color:var(--muted-2)">แจ้งเมื่อ '+esc(x.filed_at)+'</div>'+
+        cancelBtn+
       '</div>';
     }).join('');
+    $('historyContainer').querySelectorAll('[data-cancel]').forEach(b=>{b.onclick=()=>cancelMyLeave(b.dataset.cancel);});
   }catch(err){$('historyContainer').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';}
+}
+async function cancelMyLeave(leaveId){
+  if(!confirm('ยกเลิกใบลานี้?'))return;
+  try{
+    const r=await apiPost('cancelLeave',{emp_id:selectedEmp.emp_id, leave_id:leaveId});
+    if(r.ok){toast('ยกเลิกใบลาแล้ว');loadHistory();}
+    else toast(r.error||'ยกเลิกไม่ได้',true);
+  }catch(err){toast('ผิดพลาด',true);}
 }
 
 /* ---------- ผูกปุ่มฝั่งพนักงาน ---------- */
@@ -206,9 +289,14 @@ $('changePersonBtn').onclick=()=>{$('screenForm').classList.add('hidden');$('scr
 $('stLeave').onclick=()=>switchSubTab('leave');
 $('stHistory').onclick=()=>switchSubTab('history');
 $('leaveDate').onchange=updateStatus;
+$('modeSingle').onclick=()=>setDayMode('single');
+$('modeRange').onclick=()=>setDayMode('range');
 $('leaveTypeChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{selectedType=c.dataset.type;$('leaveTypeChips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x===c));});
 $('allDayBtn').onclick=()=>{const all=selectedSlots.size>=8;selectedSlots.clear();if(!all)TIME_SLOTS.forEach(s=>selectedSlots.add(s));renderTimeline();updateHourTotal();};
-$('submitBtn').onclick=submitLeave;
+$('submitBtn').onclick=askConfirmSubmit;
+$('csCancel').onclick=()=>{$('confirmSubmitModal').classList.add('hidden');pendingPayload=null;};
+$('csConfirm').onclick=doSubmit;
+$('confirmSubmitModal').onclick=e=>{if(e.target===$('confirmSubmitModal')){$('confirmSubmitModal').classList.add('hidden');pendingPayload=null;}};
 $('againBtn').onclick=gotoForm;
 $('doneBtn').onclick=()=>{selectedEmp=null;$('screenSuccess').classList.add('hidden');$('screenSelect').classList.remove('hidden');loadEmployees();window.scrollTo(0,0);};
 

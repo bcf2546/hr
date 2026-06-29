@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BCF ระบบแจ้งลา — index.html — v1.1 — 2026-06-29 -->
+<!-- BCF ระบบแจ้งลา — index.html — v1.2 — 2026-06-29 -->
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -51,7 +51,20 @@
   <section id="paneLeave">
     <div class="fblock">
       <div class="flabel"><span class="num">1</span>เลือกวันที่ลา <span class="mm" style="display:inline;margin-left:4px">· ခွင့်ယူမည့်ရက်</span></div>
-      <input type="date" class="dateInput" id="leaveDate">
+      <div class="subTabs" style="margin-bottom:12px">
+        <button class="subTab active" id="modeSingle">ลาวันเดียว<span class="mm" style="color:inherit;opacity:.8">တစ်ရက်</span></button>
+        <button class="subTab" id="modeRange">ลาหลายวัน<span class="mm" style="color:inherit;opacity:.8">ရက်များ</span></button>
+      </div>
+      <div id="singleDateWrap">
+        <input type="date" class="dateInput" id="leaveDate">
+      </div>
+      <div id="rangeDateWrap" class="hidden">
+        <label style="font-weight:700;font-size:13.5px">จากวันที่ · မှ</label>
+        <input type="date" class="dateInput" id="dateFrom" style="margin:6px 0 12px">
+        <label style="font-weight:700;font-size:13.5px">ถึงวันที่ · အထိ</label>
+        <input type="date" class="dateInput" id="dateTo" style="margin-top:6px">
+        <div style="font-size:12.5px;color:var(--muted);margin-top:10px;background:var(--bg2);padding:10px;border-radius:9px">ℹ️ วันอาทิตย์ / วันหยุด / วันที่ลาซ้ำ จะถูกข้ามอัตโนมัติ<br>ช่วงเวลาที่เลือกด้านล่างจะใช้กับทุกวันในช่วงนี้</div>
+      </div>
       <div id="statusWrap"></div>
       <div id="sundayWrap"></div>
     </div>
@@ -108,6 +121,19 @@
   </div>
 </div>
 
+<!-- Submit confirmation modal -->
+<div class="overlay hidden" id="confirmSubmitModal">
+  <div class="modal" style="max-width:400px">
+    <div style="font-size:38px;margin-bottom:4px">📋</div>
+    <div class="bigName" style="font-size:21px">ยืนยันการแจ้งลา?<span style="display:block;font-size:14px;font-weight:500;color:var(--muted);margin-top:3px">အတည်ပြုမလား?</span></div>
+    <div class="summaryList" id="confirmSummary" style="margin:16px 0"></div>
+    <div class="modalBtns">
+      <button class="btn btn-line" id="csCancel">ยกเลิก<span class="sub">ပယ်ဖျက်</span></button>
+      <button class="btn btn-primary" id="csConfirm">ยืนยันส่ง<span class="sub">အတည်ပြု</span></button>
+    </div>
+  </div>
+</div>
+
 <!-- Admin PIN modal -->
 <div class="overlay hidden" id="pinModal">
   <div class="modal">
@@ -133,7 +159,8 @@
   </div>
   <div class="adminBody">
     <div id="adminEmpPane">
-      <button class="btn btn-primary btn-block" id="addEmpBtn" style="margin-bottom:14px">+ เพิ่มพนักงานใหม่</button>
+      <button class="btn btn-primary btn-block" id="addEmpBtn" style="margin-bottom:10px">+ เพิ่มพนักงานใหม่</button>
+      <button class="btn btn-ghost btn-block" id="batchPhotoBtn" style="margin-bottom:14px">📷 อัปโหลดรูปหลายคนพร้อมกัน</button>
       <div class="searchBar"><span class="si">🔎</span><input type="text" id="adminSearch" placeholder="ค้นหาพนักงาน" autocomplete="off"></div>
       <div id="adminEmpList"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
     </div>
@@ -143,12 +170,19 @@
     </div>
     <div id="adminLeavesPane" class="hidden">
       <div class="field"><label>เลือกเดือน</label><input type="month" id="leavesMonth"></div>
+      <button class="btn btn-ghost btn-block" id="exportBtn" style="margin-bottom:12px">⬇️ Export เดือนนี้เป็นไฟล์ Excel (.csv)</button>
       <div class="searchBar"><span class="si">🔎</span><input type="text" id="leavesSearch" placeholder="ค้นหาชื่อพนักงาน" autocomplete="off"></div>
       <div id="leavesContent"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
     </div>
     <div id="adminSetPane" class="hidden">
       <div class="fblock">
-        <div class="flabel">📱 การแจ้งเตือน Telegram</div>
+        <div class="flabel">📅 วันหยุดบริษัท</div>
+        <p style="color:var(--muted); font-size:13.5px; margin:0 0 14px">เพิ่มวันหยุด (สงกรานต์/ปีใหม่ ฯลฯ) — วันที่ใส่ไว้ พนักงานจะลาทับไม่ได้ (กันโดนหักเงินฟรี)</p>
+        <div class="field"><label>วันที่</label><input type="date" id="holDate"></div>
+        <div class="field"><label>ชื่อวันหยุด</label><input type="text" id="holName" placeholder="เช่น สงกรานต์"></div>
+        <button class="btn btn-ghost btn-block" id="addHolBtn">+ เพิ่มวันหยุด</button>
+        <div id="holList" style="margin-top:14px"></div>
+      </div>
         <p style="color:var(--muted); font-size:13.5px; margin:0 0 14px">ใส่ Bot Token และ Chat ID เพื่อส่งแจ้งเตือนเข้ากลุ่มทุกครั้งที่มีคนลา</p>
         <div class="field"><label>Bot Token</label><input type="text" id="setTgToken" placeholder="123456:ABC-DEF..."></div>
         <div class="field"><label>Chat ID (กลุ่ม)</label><input type="text" id="setTgChat" placeholder="-1001234567890"></div>
@@ -183,12 +217,23 @@
   </div>
 </div>
 
+<!-- Batch photo upload modal -->
+<div class="overlay hidden" id="batchModal">
+  <div class="modal" style="max-width:440px; text-align:left">
+    <div class="bigName" style="font-size:20px; text-align:center; margin-bottom:6px">อัปโหลดรูปหลายคน</div>
+    <p style="color:var(--muted);font-size:13px;text-align:center;margin:0 0 16px">ตั้งชื่อไฟล์รูปเป็น<b>รหัสพนักงาน</b> เช่น <code>B001.jpg</code>, <code>T-01.jpg</code><br>ระบบจะจับคู่ให้เองอัตโนมัติ</p>
+    <label class="btn btn-primary btn-block" style="cursor:pointer">📁 เลือกรูปหลายไฟล์<input type="file" id="batchPhotos" accept="image/*" multiple class="hidden"></label>
+    <div id="batchLog" style="margin-top:14px; max-height:280px; overflow-y:auto"></div>
+    <button class="btn btn-line btn-block" id="batchClose" style="margin-top:14px">ปิด</button>
+  </div>
+</div>
+
 <button class="secretDot" id="secretDot" aria-label="admin"></button>
 <div class="toast" id="toast"></div>
 
 <!-- โหลดตามลำดับ: config → app → admin (เวลาแก้ไฟล์ บวกเลข ?v=) -->
 <script src="config.js?v=1.0"></script>
-<script src="app.js?v=1.0"></script>
-<script src="admin.js?v=1.1"></script>
+<script src="app.js?v=1.1"></script>
+<script src="admin.js?v=1.2"></script>
 </body>
 </html>

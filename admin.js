@@ -5,7 +5,7 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.1';
+window.BCF_VER.admin = '1.2';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
 let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
@@ -40,6 +40,7 @@ function switchAdminTab(t){
   var d=new Date(), thisMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   if(t==='dash'){if(!$('dashMonth').value)$('dashMonth').value=thisMonth;loadDashboard();}
   if(t==='leaves'){if(!$('leavesMonth').value)$('leavesMonth').value=thisMonth;loadLeaves();}
+  if(t==='set'){loadHolidaysAdmin();}
 }
 
 /* ---------- รายชื่อพนักงาน (แอดมิน) ---------- */
@@ -223,6 +224,93 @@ async function deleteLeaveAdmin(leaveId){
   }catch(err){toast('ผิดพลาด',true);}
 }
 
+/* ---------- วันหยุดบริษัท (แอดมิน) ---------- */
+async function loadHolidaysAdmin(){
+  $('holList').innerHTML='<div style="color:var(--muted);font-size:13px">กำลังโหลด...</div>';
+  try{
+    const r=await apiGet('holidays');
+    const hs=(r.holidays||[]);
+    if(hs.length===0){$('holList').innerHTML='<div style="color:var(--muted);font-size:13px">ยังไม่มีวันหยุด</div>';return;}
+    $('holList').innerHTML=hs.map(h=>'<div class="adminRow" style="margin-bottom:7px"><div class="rn"><b>'+esc(h.date)+'</b><small>'+esc(h.name)+'</small></div><button class="miniBtn del" data-delhol="'+esc(h.date)+'">ลบ</button></div>').join('');
+    $('holList').querySelectorAll('[data-delhol]').forEach(b=>{b.onclick=()=>deleteHolidayAdmin(b.dataset.delhol);});
+  }catch(err){$('holList').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';}
+}
+async function addHolidayAdmin(){
+  const date=$('holDate').value, name=$('holName').value.trim();
+  if(!date){toast('เลือกวันที่ก่อน',true);return;}
+  const btn=$('addHolBtn'); btn.disabled=true; btn.textContent='บันทึก...';
+  try{
+    const r=await apiPost('addHoliday',{pin:adminPin,date:date,name:name||'วันหยุด'});
+    if(r.ok){toast('เพิ่มวันหยุดแล้ว');$('holDate').value='';$('holName').value='';loadHolidaysAdmin();}
+    else toast(r.error||'ผิดพลาด',true);
+  }catch(err){toast('ผิดพลาด',true);}
+  btn.disabled=false; btn.textContent='+ เพิ่มวันหยุด';
+}
+async function deleteHolidayAdmin(date){
+  if(!confirm('ลบวันหยุด '+date+'?'))return;
+  try{
+    const r=await apiPost('deleteHoliday',{pin:adminPin,date:date});
+    if(r.ok){toast('ลบแล้ว');loadHolidaysAdmin();}else toast(r.error||'ผิดพลาด',true);
+  }catch(err){toast('ผิดพลาด',true);}
+}
+
+/* ---------- Export ใบลาเดือนนี้เป็น CSV (เปิดใน Excel ได้) ---------- */
+function exportLeavesCSV(){
+  if(!adminLeaves || adminLeaves.length===0){toast('ไม่มีข้อมูลให้ Export',true);return;}
+  const head=['วันที่ลา','รหัส','ชื่อ','สัญชาติ','ประเภท','ช่วงเวลา','ชั่วโมง','เต็มวัน','สถานะ','เหตุผล','แจ้งเมื่อ'];
+  const rows=adminLeaves.map(x=>[x.leave_date,x.emp_id,x.name,x.nationality,x.leave_type,x.slots,x.hours,(x.is_full_day?'เต็มวัน':''),x.filing_status,(x.reason||''),x.filed_at]);
+  const escCsv=v=>{v=String(v==null?'':v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v;};
+  const csv=[head].concat(rows).map(r=>r.map(escCsv).join(',')).join('\r\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}); // BOM ให้ไทยไม่เพี้ยนใน Excel
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='BCF_ลา_'+($('leavesMonth').value||'all')+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast('ดาวน์โหลดไฟล์แล้ว ✓');
+}
+
+/* ---------- อัปโหลดรูปหลายคน (ตั้งชื่อไฟล์เป็นรหัสพนักงาน) ---------- */
+function resizePhoto(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{const img=new Image();img.onload=()=>{
+      const max=600;let w=img.width,h=img.height;
+      if(w>h){if(w>max){h=h*max/w;w=max;}}else{if(h>max){w=w*max/h;h=max;}}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(cv.toDataURL('image/jpeg',0.85));
+    };img.onerror=reject;img.src=e.target.result;};
+    reader.onerror=reject; reader.readAsDataURL(file);
+  });
+}
+async function handleBatchPhotos(){
+  const files=Array.from($('batchPhotos').files||[]);
+  if(files.length===0)return;
+  const log=$('batchLog'); log.innerHTML='';
+  const byId={}; adminEmployees.forEach(e=>{byId[String(e.emp_id).trim().toLowerCase()]=e;});
+  let done=0, ok=0;
+  function line(txt,color){const d=document.createElement('div');d.style.cssText='font-size:13px;padding:4px 0;color:'+(color||'var(--text)');d.innerHTML=txt;log.appendChild(d);log.scrollTop=log.scrollHeight;}
+  for(const f of files){
+    const base=f.name.replace(/\.[^.]+$/,'').trim();
+    const emp=byId[base.toLowerCase()];
+    if(!emp){ line('⚠️ '+esc(f.name)+' — ไม่พบรหัส "'+esc(base)+'"','var(--amber)'); done++; continue; }
+    try{
+      const b64=await resizePhoto(f);
+      const up=await apiPost('uploadPhoto',{pin:adminPin,base64:b64,mime:'image/jpeg',filename:base+'.jpg'});
+      if(!up.ok) throw new Error(up.error||'อัปโหลดไม่สำเร็จ');
+      const sv=await apiPost('updateEmployee',{pin:adminPin,emp_id:emp.emp_id,name_th:emp.name_th,name_mm:emp.name_mm,nationality:emp.nationality,note:emp.note,photo_id:up.photo_id});
+      if(!sv.ok) throw new Error(sv.error||'บันทึกไม่สำเร็จ');
+      emp.photo_id=up.photo_id; if(up.photo_url)emp.photo_url=up.photo_url;
+      ok++; line('✅ '+esc(emp.name_th||emp.name_mm)+' ('+esc(emp.emp_id)+')','var(--green)');
+    }catch(err){ line('❌ '+esc(f.name)+' — '+esc(err.message),'var(--red)'); }
+    done++;
+  }
+  line('<b>เสร็จ — สำเร็จ '+ok+'/'+files.length+' รูป</b>');
+  toast('อัปโหลดเสร็จ '+ok+'/'+files.length);
+  const res=await apiGet('employees',{admin:'1',pin:adminPin});
+  if(res.ok)adminEmployees=res.employees||[];
+  renderAdminEmp(); refreshPublicList();
+}
+
 /* ---------- ตั้งค่า Telegram ---------- */
 async function saveTelegram(){
   const btn=$('saveTgBtn'); btn.disabled=true; btn.textContent='บันทึก...';
@@ -255,6 +343,11 @@ $('atSet').onclick=()=>switchAdminTab('set');
 $('adminSearch').oninput=renderAdminEmp;
 $('leavesMonth').onchange=loadLeaves;
 $('leavesSearch').oninput=renderLeaves;
+$('exportBtn').onclick=exportLeavesCSV;
+$('addHolBtn').onclick=addHolidayAdmin;
+$('batchPhotoBtn').onclick=()=>{$('batchLog').innerHTML='';$('batchPhotos').value='';$('batchModal').classList.remove('hidden');};
+$('batchClose').onclick=()=>$('batchModal').classList.add('hidden');
+$('batchPhotos').onchange=handleBatchPhotos;
 $('addEmpBtn').onclick=()=>openEmpModal(null);
 $('empCancel').onclick=()=>$('empModal').classList.add('hidden');
 $('empSave').onclick=saveEmp;
