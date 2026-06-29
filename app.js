@@ -5,7 +5,7 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.2';
+window.BCF_VER.app = '1.3';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
@@ -22,6 +22,8 @@ function initials(name){const n=(name||'?').trim();return n.charAt(0)||'?';}
 function toast(msg,isErr){const t=$('toast');t.textContent=msg;t.className='toast show'+(isErr?' err':'');clearTimeout(t._t);t._t=setTimeout(()=>{t.className='toast';},2600);}
 function debounce(fn,ms){let t;return function(){const a=arguments,c=this;clearTimeout(t);t=setTimeout(()=>fn.apply(c,a),ms);};}
 function sizedUrl(u,size){return (u&&size)?u.replace(/=w\d+$/,'=w'+size):u;}
+const AM_SLOTS=TIME_SLOTS.slice(0,4);   // 08:00-12:00
+const PM_SLOTS=TIME_SLOTS.slice(4,8);   // 13:00-17:00
 
 async function apiGet(action,params){
   const q=new URLSearchParams(Object.assign({action:action},params||{})).toString();
@@ -101,6 +103,9 @@ function gotoForm(){
   $('pbAvatar').outerHTML=avatarHTML('pa',nm,e.photo_url,'pbAvatar',120);
   $('pbName').textContent=nm;
   $('pbSub').textContent=e.emp_id+(e.name_mm&&e.nationality==='MM'?' · '+e.name_th:'');
+  // พม่า: ปิดการใช้ลาพักร้อน (ยังไม่เปิดใช้)
+  const vacaChip=$('leaveTypeChips').querySelector('[data-type="ลาพักร้อน"]');
+  if(e.nationality==='MM') vacaChip.classList.add('disabled'); else vacaChip.classList.remove('disabled');
   resetForm(); switchSubTab('leave'); window.scrollTo(0,0);
 }
 function resetForm(){
@@ -108,11 +113,28 @@ function resetForm(){
   $('leaveDate').value=todayStr(); $('reasonInput').value='';
   $('dateFrom').value=todayStr(); $('dateTo').value=todayStr();
   $('leaveTypeChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.type==='ลากิจ'));
+  markQuick(null);
   setDayMode('single');
+  applyTypeMode();
   renderTimeline(); updateHourTotal();
 }
 
 /* ---------- ไทม์ไลน์เวลา ---------- */
+function markQuick(which){
+  ['btnFull','btnAM','btnPM'].forEach(id=>$(id).classList.toggle('active', id===which));
+}
+function setQuick(slots,which){
+  selectedSlots.clear(); slots.forEach(s=>selectedSlots.add(s));
+  markQuick(which); renderTimeline(); updateHourTotal();
+}
+function syncQuickHighlight(){
+  // ไฮไลต์ปุ่มลัดให้ตรงกับ slot ที่เลือกอยู่ (ถ้าตรงพอดี)
+  const arr=[...selectedSlots].sort((a,b)=>TIME_SLOTS.indexOf(a)-TIME_SLOTS.indexOf(b)).join(',');
+  if(arr===TIME_SLOTS.join(',')) markQuick('btnFull');
+  else if(arr===AM_SLOTS.join(',')) markQuick('btnAM');
+  else if(arr===PM_SLOTS.join(',')) markQuick('btnPM');
+  else markQuick(null);
+}
 function renderTimeline(){
   $('timeline').innerHTML=DAY_BLOCKS.map(b=>{
     if(b.lunch) return '<div class="slot lunch"><div class="tk">🍴</div><div class="tm">'+b.label+'</div><span class="lz">พักเที่ยง</span></div>';
@@ -120,8 +142,20 @@ function renderTimeline(){
     return '<button class="slot'+(on?' on':'')+'" data-slot="'+b.v+'"><div class="tk">'+(on?'✓':'')+'</div><div class="tm">'+b.v+'</div></button>';
   }).join('');
   $('timeline').querySelectorAll('.slot[data-slot]').forEach(s=>{
-    s.onclick=()=>{const v=s.dataset.slot; if(selectedSlots.has(v))selectedSlots.delete(v); else selectedSlots.add(v); renderTimeline(); updateHourTotal();};
+    s.onclick=()=>{const v=s.dataset.slot; if(selectedSlots.has(v))selectedSlots.delete(v); else selectedSlots.add(v); renderTimeline(); updateHourTotal(); syncQuickHighlight();};
   });
+}
+
+/* ---------- ประเภทลา → ปรับโหมด (พักร้อน = หลายวัน ไม่เลือกเวลา) ---------- */
+function applyTypeMode(){
+  const isVaca = (selectedType==='ลาพักร้อน');
+  $('timeBlock').classList.toggle('hidden', isVaca);
+  $('dayModeToggle').classList.toggle('hidden', isVaca);
+  $('vacaNote').classList.toggle('hidden', !isVaca);
+  if(isVaca){
+    setDayMode('range');                 // พักร้อน = ช่วงวัน (วันเดียวก็ได้)
+    selectedSlots.clear(); TIME_SLOTS.forEach(s=>selectedSlots.add(s)); // นับเต็มวัน
+  }
 }
 function updateHourTotal(){
   const n=selectedSlots.size, el=$('hourTotal');
@@ -294,8 +328,15 @@ $('stHistory').onclick=()=>switchSubTab('history');
 $('leaveDate').onchange=updateStatus;
 $('modeSingle').onclick=()=>setDayMode('single');
 $('modeRange').onclick=()=>setDayMode('range');
-$('leaveTypeChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{selectedType=c.dataset.type;$('leaveTypeChips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x===c));});
-$('allDayBtn').onclick=()=>{const all=selectedSlots.size>=8;selectedSlots.clear();if(!all)TIME_SLOTS.forEach(s=>selectedSlots.add(s));renderTimeline();updateHourTotal();};
+$('leaveTypeChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  if(c.classList.contains('disabled'))return;
+  selectedType=c.dataset.type;
+  $('leaveTypeChips').querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x===c));
+  applyTypeMode(); updateHourTotal();
+});
+$('btnFull').onclick=()=>setQuick(TIME_SLOTS,'btnFull');
+$('btnAM').onclick=()=>setQuick(AM_SLOTS,'btnAM');
+$('btnPM').onclick=()=>setQuick(PM_SLOTS,'btnPM');
 $('submitBtn').onclick=askConfirmSubmit;
 $('csCancel').onclick=()=>{$('confirmSubmitModal').classList.add('hidden');pendingPayload=null;};
 $('csConfirm').onclick=doSubmit;

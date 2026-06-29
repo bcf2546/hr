@@ -1,5 +1,5 @@
 /* ============================================================
- * BCF ระบบแจ้งลา — styles.css — v1.3 — 2026-06-29
+ * BCF ระบบแจ้งลา — styles.css — v1.4 — 2026-06-29
  * สี/ดีไซน์ทั้งหมด (ปรับหน้าตาที่นี่)
  * ============================================================ */
 :root{
@@ -165,6 +165,15 @@ input[type="month"]::-webkit-calendar-picker-indicator{opacity:.55}
 .slot.lunch .tm{color:var(--muted-2)}
 .slot.lunch .lz{font-size:12px; margin-left:auto; font-weight:600}
 .allDayRow{margin-top:11px}
+.quickPick{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.qbtn{padding:11px 6px; border:2px solid var(--line); border-radius:11px; background:#fff; font-weight:700; font-size:13.5px;
+  color:var(--text); display:flex; flex-direction:column; gap:2px; align-items:center; transition:border-color .1s, background .1s}
+.qbtn small{font-weight:500; font-size:10.5px; color:var(--muted)}
+.qbtn.active{border-color:var(--brand); background:#EAF4FD; color:var(--brand)}
+.qbtn.active small{color:var(--brand)}
+.qbtn:active{transform:scale(.97)}
+.chip.disabled{opacity:.4; filter:grayscale(1); pointer-events:none}
+.chip.disabled::after{content:"🔒"; font-size:11px; margin-top:2px}
 
 textarea.reason{width:100%; min-height:74px; padding:13px; border:2px solid var(--line); border-radius:11px; outline:none; resize:vertical; color:var(--text); background:#fff}
 textarea.reason:focus{border-color:var(--brand)}
