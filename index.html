@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<!-- BCF ระบบแจ้งลา — index.html — v1.0 — 2026-06-29 -->
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0062A1">
+<title>ระบบแจ้งลา · ฟาร์มไก่ดำ (กาญจนบุรี)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Noto+Sans+Myanmar:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- เวลาแก้ไฟล์ ให้บวกเลข ?v= เพื่อให้เบราว์เซอร์โหลดของใหม่ -->
+<link rel="stylesheet" href="styles.css?v=1.0">
+</head>
+<body>
+
+<header class="app-header">
+  <img id="hdrLogo" src="BCF_LOGO_white.png" alt="BCF" onerror="this.style.display='none'">
+  <div class="ht">
+    <b>ระบบแจ้งลา</b>
+    <span>ฟาร์มไก่ดำ (กาญจนบุรี) · ခွင့်တင်ခြင်းစနစ်</span>
+  </div>
+  <div class="header-spacer"></div>
+  <button class="icon-btn" id="refreshBtn" title="รีเฟรช">↻</button>
+</header>
+
+<!-- SCREEN 1: เลือกพนักงาน -->
+<main class="wrap" id="screenSelect">
+  <h1 class="section-title">เลือกชื่อของคุณ<span class="mm">သင့်နာမည်ကို ရွေးပါ</span></h1>
+  <p class="section-sub">เลือกสัญชาติ แล้วแตะที่รูป/ชื่อของคุณ</p>
+  <div class="natTabs">
+    <button class="natTab active" data-nat="TH" id="tabTH"><span class="flag">🇹🇭</span><span>คนไทย</span><span class="cnt" id="cntTH">—</span></button>
+    <button class="natTab" data-nat="MM" id="tabMM"><span class="flag">🇲🇲</span><span>မြန်မာ (พม่า)</span><span class="cnt" id="cntMM">—</span></button>
+  </div>
+  <div class="searchBar"><span class="si">🔎</span><input type="text" id="searchInput" placeholder="ค้นหาชื่อ · နာမည်ရှာရန်" autocomplete="off"></div>
+  <div id="empContainer"><div class="loading"><div class="spinner"></div>กำลังโหลดรายชื่อ...</div></div>
+</main>
+
+<!-- SCREEN 2: แจ้งลา / ประวัติ -->
+<main class="wrap hidden" id="screenForm">
+  <div class="personBar">
+    <div class="pa" id="pbAvatar"></div>
+    <div class="pn"><b id="pbName">—</b><small id="pbSub"></small></div>
+    <button class="linkBtn" id="changePersonBtn">เปลี่ยนคน ›</button>
+  </div>
+  <div class="subTabs">
+    <button class="subTab active" id="stLeave">แจ้งลา<span class="mm" style="color:inherit;opacity:.8">ခွင့်တင်ရန်</span></button>
+    <button class="subTab" id="stHistory">ประวัติของฉัน<span class="mm" style="color:inherit;opacity:.8">မှတ်တမ်း</span></button>
+  </div>
+
+  <section id="paneLeave">
+    <div class="fblock">
+      <div class="flabel"><span class="num">1</span>เลือกวันที่ลา <span class="mm" style="display:inline;margin-left:4px">· ခွင့်ယူမည့်ရက်</span></div>
+      <input type="date" class="dateInput" id="leaveDate">
+      <div id="statusWrap"></div>
+      <div id="sundayWrap"></div>
+    </div>
+    <div class="fblock">
+      <div class="flabel"><span class="num">2</span>ประเภทการลา <span class="mm" style="display:inline;margin-left:4px">· အမျိုးအစား</span></div>
+      <div class="chips" id="leaveTypeChips">
+        <button class="chip active" data-type="ลากิจ"><span class="ci">📝</span>ลากิจ<span class="mm" style="color:inherit;opacity:.75">ကိုယ်ရေး</span></button>
+        <button class="chip" data-type="ลาป่วย"><span class="ci">🤒</span>ลาป่วย<span class="mm" style="color:inherit;opacity:.75">နာမကျန်း</span></button>
+        <button class="chip" data-type="ลาพักร้อน"><span class="ci">🌴</span>พักร้อน<span class="mm" style="color:inherit;opacity:.75">အားလပ်</span></button>
+      </div>
+    </div>
+    <div class="fblock">
+      <div class="timelineHead">
+        <div class="flabel" style="margin:0"><span class="num">3</span>เลือกช่วงเวลา <span class="mm" style="display:inline;margin-left:4px">· အချိန်</span></div>
+        <div class="hourTotal zero" id="hourTotal">รวม 0 ชม.</div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="allDayRow"><button class="btn btn-ghost btn-block" id="allDayBtn">☀️ ลาทั้งวัน · တစ်နေ့လုံး</button></div>
+    </div>
+    <div class="fblock">
+      <div class="flabel"><span class="num">4</span>เหตุผล (ไม่บังคับ) <span class="mm" style="display:inline;margin-left:4px">· အကြောင်းရင်း</span></div>
+      <textarea class="reason" id="reasonInput" placeholder="เช่น ไปหาหมอ, ธุระครอบครัว..."></textarea>
+    </div>
+    <button class="btn btn-primary btn-block btn-lg" id="submitBtn">ส่งใบลา <span class="sub">ခွင့်တင်မည်</span></button>
+  </section>
+
+  <section id="paneHistory" class="hidden">
+    <div id="historyContainer"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
+  </section>
+</main>
+
+<!-- SCREEN 3: สำเร็จ -->
+<main class="wrap hidden" id="screenSuccess">
+  <div class="fblock successCard">
+    <div class="ico">✓</div>
+    <h2>ส่งใบลาเรียบร้อย</h2>
+    <p style="color:var(--muted); margin:0">အောင်မြင်ပါသည် · บันทึกข้อมูลแล้ว</p>
+    <div class="summaryList" id="successSummary"></div>
+    <button class="btn btn-primary btn-block btn-lg" id="againBtn">แจ้งลาอีกครั้ง</button>
+    <button class="btn btn-line btn-block" style="margin-top:10px" id="doneBtn">เสร็จสิ้น · กลับหน้าแรก</button>
+  </div>
+</main>
+
+<!-- Confirm modal -->
+<div class="overlay hidden" id="confirmModal">
+  <div class="modal">
+    <div class="bigAvatar" id="cmAvatar"></div>
+    <div class="bigName" id="cmName">—</div>
+    <p class="q">ใช่คุณหรือไม่?<br><span class="mm" style="display:inline">ဒါ သင်ဟုတ်လား?</span></p>
+    <div class="modalBtns">
+      <button class="btn btn-line" id="cmCancel">ไม่ใช่<span class="sub">မဟုတ်ပါ</span></button>
+      <button class="btn btn-primary" id="cmConfirm">ใช่ ฉันเอง<span class="sub">ဟုတ်ပါတယ်</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin PIN modal -->
+<div class="overlay hidden" id="pinModal">
+  <div class="modal">
+    <div style="font-size:40px; margin-bottom:6px">🔒</div>
+    <div class="bigName" style="font-size:20px">เข้าสู่ระบบผู้ดูแล</div>
+    <p class="q">กรอกรหัส PIN</p>
+    <input type="password" inputmode="numeric" id="pinInput" class="dateInput" style="text-align:center; letter-spacing:6px; font-size:24px" placeholder="••••" maxlength="12">
+    <div class="modalBtns" style="margin-top:18px">
+      <button class="btn btn-line" id="pinCancel">ยกเลิก</button>
+      <button class="btn btn-primary" id="pinSubmit">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin screen -->
+<div class="adminScreen hidden" id="adminScreen">
+  <div class="adminBar"><b>⚙️ ผู้ดูแลระบบ</b><button class="icon-btn" id="adminClose">ปิด ✕</button></div>
+  <div class="adminTabs">
+    <button class="aTab active" id="atEmp">พนักงาน</button>
+    <button class="aTab" id="atDash">สรุปการลา</button>
+    <button class="aTab" id="atSet">ตั้งค่า</button>
+  </div>
+  <div class="adminBody">
+    <div id="adminEmpPane">
+      <button class="btn btn-primary btn-block" id="addEmpBtn" style="margin-bottom:14px">+ เพิ่มพนักงานใหม่</button>
+      <div class="searchBar"><span class="si">🔎</span><input type="text" id="adminSearch" placeholder="ค้นหาพนักงาน" autocomplete="off"></div>
+      <div id="adminEmpList"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
+    </div>
+    <div id="adminDashPane" class="hidden">
+      <div class="field"><label>เลือกเดือน</label><input type="month" id="dashMonth"></div>
+      <div id="dashContent"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
+    </div>
+    <div id="adminSetPane" class="hidden">
+      <div class="fblock">
+        <div class="flabel">📱 การแจ้งเตือน Telegram</div>
+        <p style="color:var(--muted); font-size:13.5px; margin:0 0 14px">ใส่ Bot Token และ Chat ID เพื่อส่งแจ้งเตือนเข้ากลุ่มทุกครั้งที่มีคนลา</p>
+        <div class="field"><label>Bot Token</label><input type="text" id="setTgToken" placeholder="123456:ABC-DEF..."></div>
+        <div class="field"><label>Chat ID (กลุ่ม)</label><input type="text" id="setTgChat" placeholder="-1001234567890"></div>
+        <button class="btn btn-ghost btn-block" id="saveTgBtn">บันทึกการตั้งค่า</button>
+        <button class="btn btn-line btn-block" style="margin-top:10px" id="testTgBtn">📤 ทดสอบส่งข้อความ</button>
+      </div>
+      <div class="fblock">
+        <div class="flabel">ℹ️ ข้อมูลระบบ</div>
+        <p style="color:var(--muted); font-size:13.5px; margin:0">เปลี่ยนรหัส PIN ได้ในชีท Settings (แถว admin_pin) · ค่าแรงรายวันกรอกในชีท Payroll_TH / Payroll_MM</p>
+      </div>
+    </div>
+    <div class="verFoot" id="verFoot"></div>
+  </div>
+</div>
+
+<!-- Add/Edit employee modal -->
+<div class="overlay hidden" id="empModal">
+  <div class="modal" style="max-width:420px; text-align:left">
+    <div class="bigName" style="font-size:20px; text-align:center; margin-bottom:18px" id="empModalTitle">เพิ่มพนักงาน</div>
+    <div style="text-align:center">
+      <div class="uploadPrev" id="empPrev">?</div>
+      <label class="miniBtn" style="display:inline-block; cursor:pointer; margin-bottom:16px">📷 เลือกรูป<input type="file" id="empPhoto" accept="image/*" class="hidden"></label>
+    </div>
+    <div class="field"><label>ชื่อ (ไทย/ทับศัพท์) *</label><input type="text" id="empNameTh"></div>
+    <div class="field"><label>ชื่อ (อักษรพม่า / โรมัน)</label><input type="text" id="empNameMm" placeholder="สำหรับพนักงานพม่า"></div>
+    <div class="field"><label>สัญชาติ *</label><select id="empNat"><option value="TH">คนไทย</option><option value="MM">พม่า</option></select></div>
+    <div class="field"><label>ตำแหน่ง / หมายเหตุ</label><input type="text" id="empNote"></div>
+    <div class="modalBtns" style="margin-top:6px">
+      <button class="btn btn-line" id="empCancel">ยกเลิก</button>
+      <button class="btn btn-primary" id="empSave">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<button class="secretDot" id="secretDot" aria-label="admin"></button>
+<div class="toast" id="toast"></div>
+
+<!-- โหลดตามลำดับ: config → app → admin (เวลาแก้ไฟล์ บวกเลข ?v=) -->
+<script src="config.js?v=1.0"></script>
+<script src="app.js?v=1.0"></script>
+<script src="admin.js?v=1.0"></script>
+</body>
+</html>
