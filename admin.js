@@ -5,7 +5,7 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.5';
+window.BCF_VER.admin = '1.6';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
 let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
@@ -192,7 +192,7 @@ function renderLeaves(){
     const opts=leaveStatuses.map(s=>'<option value="'+esc(s)+'"'+(s===x.filing_status?' selected':'')+'>'+esc(s)+'</option>').join('');
     const flag=x.nationality==='MM'?'🇲🇲':'🇹🇭';
     return '<div class="histItem '+c+'">'+
-      '<div class="histTop"><span class="histDate">'+esc(x.leave_date)+'</span><span class="tag '+c+'">'+esc(x.filing_status)+'</span></div>'+
+      '<div class="histTop"><span class="histDate">'+esc(fmtDMY(x.leave_date))+'</span><span class="tag '+c+'">'+esc(x.filing_status)+'</span></div>'+
       '<div class="histMeta"><span><b>'+flag+' '+esc(x.name)+'</b> ('+esc(x.emp_id)+')</span></div>'+
       '<div class="histMeta" style="margin-top:3px"><span><b>'+esc(x.leave_type)+'</b></span><span>⏰ '+esc(x.slots)+'</span><span>('+x.hours+' ชม.'+(x.is_full_day?' เต็มวัน':'')+')</span></div>'+
       (x.reason?'<div class="histReason">"'+esc(x.reason)+'"</div>':'')+
@@ -231,7 +231,7 @@ async function loadHolidaysAdmin(){
     const r=await apiGet('holidays');
     const hs=(r.holidays||[]);
     if(hs.length===0){$('holList').innerHTML='<div style="color:var(--muted);font-size:13px">ยังไม่มีวันหยุด</div>';return;}
-    $('holList').innerHTML=hs.map(h=>'<div class="adminRow" style="margin-bottom:7px"><div class="rn"><b>'+esc(h.date)+'</b><small>'+esc(h.name)+'</small></div><button class="miniBtn del" data-delhol="'+esc(h.date)+'">ลบ</button></div>').join('');
+    $('holList').innerHTML=hs.map(h=>'<div class="adminRow" style="margin-bottom:7px"><div class="rn"><b>'+esc(fmtDMY(h.date))+'</b><small>'+esc(h.name)+'</small></div><button class="miniBtn del" data-delhol="'+esc(h.date)+'">ลบ</button></div>').join('');
     $('holList').querySelectorAll('[data-delhol]').forEach(b=>{b.onclick=()=>deleteHolidayAdmin(b.dataset.delhol);});
   }catch(err){$('holList').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';}
 }
@@ -258,7 +258,7 @@ async function deleteHolidayAdmin(date){
 function exportLeavesCSV(){
   if(!adminLeaves || adminLeaves.length===0){toast('ไม่มีข้อมูลให้ Export',true);return;}
   const head=['วันที่ลา','รหัส','ชื่อ','สัญชาติ','ประเภท','ช่วงเวลา','ชั่วโมง','เต็มวัน','สถานะ','เหตุผล','แจ้งเมื่อ'];
-  const rows=adminLeaves.map(x=>[x.leave_date,x.emp_id,x.name,x.nationality,x.leave_type,x.slots,x.hours,(x.is_full_day?'เต็มวัน':''),x.filing_status,(x.reason||''),x.filed_at]);
+  const rows=adminLeaves.map(x=>[fmtDMY(x.leave_date),x.emp_id,x.name,x.nationality,x.leave_type,x.slots,x.hours,(x.is_full_day?'เต็มวัน':''),x.filing_status,(x.reason||''),x.filed_at]);
   const escCsv=v=>{v=String(v==null?'':v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v;};
   const csv=[head].concat(rows).map(r=>r.map(escCsv).join(',')).join('\r\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}); // BOM ให้ไทยไม่เพี้ยนใน Excel

@@ -5,7 +5,7 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.6';
+window.BCF_VER.app = '1.7';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
@@ -24,6 +24,7 @@ function debounce(fn,ms){let t;return function(){const a=arguments,c=this;clearT
 function sizedUrl(u,size){return (u&&size)?u.replace(/=w\d+$/,'=w'+size):u;}
 const AM_SLOTS=TIME_SLOTS.slice(0,4);   // 08:00-12:00
 const PM_SLOTS=TIME_SLOTS.slice(4,8);   // 13:00-17:00
+function fmtDMY(s){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); return m?(m[3]+'/'+m[2]+'/'+m[1]):(s||''); }
 function deviceInfo(){
   const ua=navigator.userAgent||'';
   let os='อื่นๆ';
@@ -275,7 +276,7 @@ function showSuccess(res,p){
   const stMap={'ลาล่วงหน้า':'🟢','ลากระทันหัน (วันเดียวกัน)':'🟡','ลาย้อนหลัง':'🔴'};
   let html;
   if(res.multi){
-    const dates=(res.created||[]).map(c=>c.date).join(', ');
+    const dates=(res.created||[]).map(c=>fmtDMY(c.date)).join(', ');
     html='<div class="row"><span class="k">ผลการลา</span><span class="v">สำเร็จ '+res.created_count+' วัน</span></div>'+
       '<div class="row"><span class="k">วันที่ลา</span><span class="v">'+esc(dates)+'</span></div>'+
       '<div class="row"><span class="k">เวลา/วัน</span><span class="v">'+res.hours_each+' ชม.</span></div>'+
@@ -283,7 +284,7 @@ function showSuccess(res,p){
   } else {
     const slots=[...selectedSlots].sort((a,b)=>TIME_SLOTS.indexOf(a)-TIME_SLOTS.indexOf(b));
     html='<div class="row"><span class="k">ชื่อ</span><span class="v">'+esc(res.name||selectedEmp.name_th)+'</span></div>'+
-      '<div class="row"><span class="k">วันที่ลา</span><span class="v">'+esc((p&&p.leave_date)||'')+'</span></div>'+
+      '<div class="row"><span class="k">วันที่ลา</span><span class="v">'+esc(fmtDMY((p&&p.leave_date)||''))+'</span></div>'+
       '<div class="row"><span class="k">เวลา</span><span class="v">'+esc(slots.join(', '))+'</span></div>'+
       '<div class="row"><span class="k">จำนวน</span><span class="v">'+res.hours+' ชม.'+(res.is_full_day?' (เต็มวัน)':'')+'</span></div>'+
       '<div class="row"><span class="k">ประเภท</span><span class="v">'+esc(selectedType)+'</span></div>'+
@@ -311,7 +312,7 @@ async function loadHistory(){
       const ap=apMap[x.approval_status];
       const apBadge=ap?'<div style="margin-top:8px;display:inline-block;font-size:12.5px;font-weight:800;color:'+ap[0]+';background:'+ap[1]+';border:1.5px solid '+ap[2]+';padding:5px 10px;border-radius:8px">'+ap[3]+'</div>':'';
       return '<div class="histItem '+c+'">'+
-        '<div class="histTop"><span class="histDate">'+esc(x.leave_date)+'</span><span class="tag '+c+'">'+esc(x.filing_status)+'</span></div>'+
+        '<div class="histTop"><span class="histDate">'+esc(fmtDMY(x.leave_date))+'</span><span class="tag '+c+'">'+esc(x.filing_status)+'</span></div>'+
         '<div class="histMeta"><span><b>'+esc(x.leave_type)+'</b></span><span>⏰ '+esc(x.slots)+'</span><span>('+x.hours+' ชม.'+(x.is_full_day?' เต็มวัน':'')+')</span></div>'+
         (x.reason?'<div class="histReason">"'+esc(x.reason)+'"</div>':'')+
         apBadge+
