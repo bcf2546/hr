@@ -5,7 +5,7 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.3';
+window.BCF_VER.app = '1.4';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
@@ -306,9 +306,11 @@ async function loadHistory(){
   }catch(err){$('historyContainer').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';}
 }
 async function cancelMyLeave(leaveId){
-  if(!confirm('ยกเลิกใบลานี้?'))return;
+  const reason=prompt('ยกเลิกใบลานี้?\n\nกรุณาใส่เหตุผลการยกเลิก (จำเป็น):','');
+  if(reason===null) return;               // กดยกเลิก prompt
+  if(!reason.trim()){ toast('ต้องใส่เหตุผลการยกเลิก',true); return; }
   try{
-    const r=await apiPost('cancelLeave',{emp_id:selectedEmp.emp_id, leave_id:leaveId});
+    const r=await apiPost('cancelLeave',{emp_id:selectedEmp.emp_id, leave_id:leaveId, reason_cancel:reason.trim()});
     if(r.ok){toast('ยกเลิกใบลาแล้ว');loadHistory();}
     else toast(r.error||'ยกเลิกไม่ได้',true);
   }catch(err){toast('ผิดพลาด',true);}
