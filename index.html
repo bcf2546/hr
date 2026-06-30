@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- BCF ระบบแจ้งลา — index.html — v1.8 — 2026-06-29 -->
+<!-- BCF ระบบแจ้งลา — index.html — v2.2 — 2026-06-30 -->
+<!-- v2.2: + วันทำงานพิเศษ(สลับวันหยุด) + แก้โครง div แท็บตั้งค่า + แก้ข้อความค่าแรง(รายวัน) -->
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -10,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=Noto+Sans+Myanmar:wght@400;500;700&display=swap" rel="stylesheet">
 <!-- เวลาแก้ไฟล์ ให้บวกเลข ?v= เพื่อให้เบราว์เซอร์โหลดของใหม่ -->
-<link rel="stylesheet" href="styles.css?v=1.4">
+<link rel="stylesheet" href="styles.css?v=1.5">
 </head>
 <body>
 
@@ -63,7 +64,7 @@
         <input type="date" class="dateInput" id="dateFrom" style="margin:6px 0 12px">
         <label style="font-weight:700;font-size:13.5px">ถึงวันที่ · အထိ</label>
         <input type="date" class="dateInput" id="dateTo" style="margin-top:6px">
-        <div style="font-size:12.5px;color:var(--muted);margin-top:10px;background:var(--bg2);padding:10px;border-radius:9px">ℹ️ วันอาทิตย์ / วันหยุด / วันที่ลาซ้ำ จะถูกข้ามอัตโนมัติ<br>ช่วงเวลาที่เลือกด้านล่างจะใช้กับทุกวันในช่วงนี้</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:10px;background:var(--bg2);padding:10px;border-radius:9px">ℹ️ วันอาทิตย์ / วันหยุด / วันที่ลาซ้ำ จะถูกข้ามอัตโนมัติ (ยกเว้นวันที่ตั้งเป็น "วันทำงานพิเศษ")<br>ช่วงเวลาที่เลือกด้านล่างจะใช้กับทุกวันในช่วงนี้</div>
       </div>
       <div id="statusWrap"></div>
       <div id="sundayWrap"></div>
@@ -190,6 +191,16 @@
         <button class="btn btn-ghost btn-block" id="addHolBtn">+ เพิ่มวันหยุด</button>
         <div id="holList" style="margin-top:14px"></div>
       </div>
+      <div class="fblock">
+        <div class="flabel">🔁 วันทำงานพิเศษ (สลับวันหยุด)</div>
+        <p style="color:var(--muted); font-size:13.5px; margin:0 0 14px">สลับวันหยุด เช่น <b>วันอาทิตย์นี้ต้องมาทำงาน</b> ให้เพิ่มวันนั้นที่นี่ — พนักงานจะลาวันนั้นได้ตามปกติ และระบบนับเป็นวันทำงาน<br>ส่วนวัน<b>ที่ไปหยุดชดเชยแทน</b> ให้เพิ่มใน "วันหยุดบริษัท" ด้านบน</p>
+        <div class="field"><label>วันที่ (ที่ต้องมาทำงาน)</label><input type="date" id="workDate"></div>
+        <div class="field"><label>หมายเหตุ</label><input type="text" id="workName" placeholder="เช่น สลับหยุดอาทิตย์มาทำงาน"></div>
+        <button class="btn btn-ghost btn-block" id="addWorkBtn">+ เพิ่มวันทำงานพิเศษ</button>
+        <div id="workList" style="margin-top:14px"></div>
+      </div>
+      <div class="fblock">
+        <div class="flabel">📨 Telegram (แจ้งเตือนเข้ากลุ่ม)</div>
         <p style="color:var(--muted); font-size:13.5px; margin:0 0 14px">ใส่ Bot Token และ Chat ID เพื่อส่งแจ้งเตือนเข้ากลุ่มทุกครั้งที่มีคนลา</p>
         <div class="field"><label>Bot Token</label><input type="text" id="setTgToken" placeholder="123456:ABC-DEF..."></div>
         <div class="field"><label>Chat ID (กลุ่ม)</label><input type="text" id="setTgChat" placeholder="-1001234567890"></div>
@@ -198,7 +209,7 @@
       </div>
       <div class="fblock">
         <div class="flabel">ℹ️ ข้อมูลระบบ</div>
-        <p style="color:var(--muted); font-size:13.5px; margin:0">เปลี่ยนรหัส PIN ได้ในชีท Settings (แถว admin_pin) · ค่าแรงรายวันกรอกในชีท Payroll_TH / Payroll_MM</p>
+        <p style="color:var(--muted); font-size:13.5px; margin:0; line-height:1.7">• เปลี่ยนรหัส PIN: ชีท Settings แถว admin_pin<br>• ค่าแรงรายวัน: กรอกในชีท <b>รายวัน_TH / รายวัน_MM</b> (ไม่ใช่ Payroll — หน้า Payroll ดึงมาสรุปให้ดูอย่างเดียว)<br>• แจ้งเตือนสรุปคนลารายวัน (เย็น+เช้า): เปิดจากเมนู <b>BCF ระบบลา → 🔔 แจ้งเตือนสรุปลา</b> ในชีท Google Sheet</p>
       </div>
     </div>
     <div class="verFoot" id="verFoot"></div>
@@ -259,7 +270,7 @@
 </script>
 
 <script src="config.js?v=1.0"></script>
-<script src="app.js?v=1.4"></script>
-<script src="admin.js?v=1.5"></script>
+<script src="app.js?v=1.8"></script>
+<script src="admin.js?v=1.8"></script>
 </body>
 </html>

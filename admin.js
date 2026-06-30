@@ -5,7 +5,7 @@
  * ใช้ helper จาก app.js ($, esc, apiGet, apiPost, toast, ฯลฯ)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.admin = '1.7';
+window.BCF_VER.admin = '1.8';
 
 let adminPin='', adminEmployees=[], editingEmpId=null, editingPhotoId='';
 let adminLeaves=[], leaveStatuses=['ลาล่วงหน้า','ลากระทันหัน (วันเดียวกัน)','ลาย้อนหลัง'];
@@ -40,7 +40,7 @@ function switchAdminTab(t){
   var d=new Date(), thisMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   if(t==='dash'){if(!$('dashMonth').value)$('dashMonth').value=thisMonth;loadDashboard();}
   if(t==='leaves'){if(!$('leavesMonth').value)$('leavesMonth').value=thisMonth;loadLeaves();}
-  if(t==='set'){loadHolidaysAdmin();}
+  if(t==='set'){loadCalendarAdmin();}
 }
 
 /* ---------- รายชื่อพนักงาน (แอดมิน) ---------- */
@@ -224,16 +224,29 @@ async function deleteLeaveAdmin(leaveId){
   }catch(err){toast('ผิดพลาด',true);}
 }
 
-/* ---------- วันหยุดบริษัท (แอดมิน) ---------- */
-async function loadHolidaysAdmin(){
+/* ---------- ปฏิทินบริษัท: วันหยุด + วันทำงานพิเศษ (แอดมิน) ---------- */
+async function loadCalendarAdmin(){
   $('holList').innerHTML='<div style="color:var(--muted);font-size:13px">กำลังโหลด...</div>';
+  if($('workList')) $('workList').innerHTML='<div style="color:var(--muted);font-size:13px">กำลังโหลด...</div>';
   try{
-    const r=await apiGet('holidays');
-    const hs=(r.holidays||[]);
-    if(hs.length===0){$('holList').innerHTML='<div style="color:var(--muted);font-size:13px">ยังไม่มีวันหยุด</div>';return;}
-    $('holList').innerHTML=hs.map(h=>'<div class="adminRow" style="margin-bottom:7px"><div class="rn"><b>'+esc(fmtDMY(h.date))+'</b><small>'+esc(h.name)+'</small></div><button class="miniBtn del" data-delhol="'+esc(h.date)+'">ลบ</button></div>').join('');
-    $('holList').querySelectorAll('[data-delhol]').forEach(b=>{b.onclick=()=>deleteHolidayAdmin(b.dataset.delhol);});
-  }catch(err){$('holList').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';}
+    const r=await apiGet('holidays');   // คืนทั้ง holidays + work_overrides ในครั้งเดียว
+    renderHolList_(r.holidays||[]);
+    renderWorkList_(r.work_overrides||[]);
+  }catch(err){
+    $('holList').innerHTML='<div class="empEmpty">⚠️ '+esc(err.message)+'</div>';
+    if($('workList')) $('workList').innerHTML='';
+  }
+}
+function renderHolList_(hs){
+  if(hs.length===0){$('holList').innerHTML='<div style="color:var(--muted);font-size:13px">ยังไม่มีวันหยุด</div>';return;}
+  $('holList').innerHTML=hs.map(h=>'<div class="adminRow" style="margin-bottom:7px"><div class="rn"><b>'+esc(fmtDMY(h.date))+'</b><small>'+esc(h.name)+'</small></div><button class="miniBtn del" data-delhol="'+esc(h.date)+'">ลบ</button></div>').join('');
+  $('holList').querySelectorAll('[data-delhol]').forEach(b=>{b.onclick=()=>deleteHolidayAdmin(b.dataset.delhol);});
+}
+function renderWorkList_(ws){
+  if(!$('workList')) return;
+  if(ws.length===0){$('workList').innerHTML='<div style="color:var(--muted);font-size:13px">ยังไม่มีวันทำงานพิเศษ</div>';return;}
+  $('workList').innerHTML=ws.map(w=>'<div class="adminRow" style="margin-bottom:7px"><div class="rn"><b>'+esc(fmtDMY(w.date))+'</b><small>🔁 '+esc(w.name)+'</small></div><button class="miniBtn del" data-delwork="'+esc(w.date)+'">ลบ</button></div>').join('');
+  $('workList').querySelectorAll('[data-delwork]').forEach(b=>{b.onclick=()=>deleteWorkdayAdmin(b.dataset.delwork);});
 }
 async function addHolidayAdmin(){
   const date=$('holDate').value, name=$('holName').value.trim();
@@ -241,7 +254,7 @@ async function addHolidayAdmin(){
   const btn=$('addHolBtn'); btn.disabled=true; btn.textContent='บันทึก...';
   try{
     const r=await apiPost('addHoliday',{pin:adminPin,date:date,name:name||'วันหยุด'});
-    if(r.ok){toast('เพิ่มวันหยุดแล้ว');$('holDate').value='';$('holName').value='';loadHolidaysAdmin();}
+    if(r.ok){toast('เพิ่มวันหยุดแล้ว');$('holDate').value='';$('holName').value='';loadCalendarAdmin();}
     else toast(r.error||'ผิดพลาด',true);
   }catch(err){toast('ผิดพลาด',true);}
   btn.disabled=false; btn.textContent='+ เพิ่มวันหยุด';
@@ -250,7 +263,25 @@ async function deleteHolidayAdmin(date){
   if(!confirm('ลบวันหยุด '+date+'?'))return;
   try{
     const r=await apiPost('deleteHoliday',{pin:adminPin,date:date});
-    if(r.ok){toast('ลบแล้ว');loadHolidaysAdmin();}else toast(r.error||'ผิดพลาด',true);
+    if(r.ok){toast('ลบแล้ว');loadCalendarAdmin();}else toast(r.error||'ผิดพลาด',true);
+  }catch(err){toast('ผิดพลาด',true);}
+}
+async function addWorkdayAdmin(){
+  const date=$('workDate').value, name=$('workName').value.trim();
+  if(!date){toast('เลือกวันที่ก่อน',true);return;}
+  const btn=$('addWorkBtn'); btn.disabled=true; btn.textContent='บันทึก...';
+  try{
+    const r=await apiPost('addWorkday',{pin:adminPin,date:date,name:name||'วันทำงานพิเศษ'});
+    if(r.ok){toast('เพิ่มวันทำงานพิเศษแล้ว');$('workDate').value='';$('workName').value='';loadCalendarAdmin();}
+    else toast(r.error||'ผิดพลาด',true);
+  }catch(err){toast('ผิดพลาด',true);}
+  btn.disabled=false; btn.textContent='+ เพิ่มวันทำงานพิเศษ';
+}
+async function deleteWorkdayAdmin(date){
+  if(!confirm('ลบวันทำงานพิเศษ '+date+'?'))return;
+  try{
+    const r=await apiPost('deleteWorkday',{pin:adminPin,date:date});
+    if(r.ok){toast('ลบแล้ว');loadCalendarAdmin();}else toast(r.error||'ผิดพลาด',true);
   }catch(err){toast('ผิดพลาด',true);}
 }
 
@@ -365,6 +396,7 @@ $('leavesMonth').onchange=loadLeaves;
 $('leavesSearch').oninput=debounce(renderLeaves,180);
 $('exportBtn').onclick=exportLeavesCSV;
 $('addHolBtn').onclick=addHolidayAdmin;
+$('addWorkBtn').onclick=addWorkdayAdmin;
 $('batchPhotoBtn').onclick=()=>{$('batchLog').innerHTML='';$('batchPhotos').value='';$('batchModal').classList.remove('hidden');};
 $('syncDriveBtn').onclick=syncPhotosFromDrive;
 $('batchClose').onclick=()=>$('batchModal').classList.add('hidden');

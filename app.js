@@ -5,13 +5,14 @@
  *  toast, avatarHTML, avatarColor, initials, imgErr)
  * ============================================================ */
 window.BCF_VER = window.BCF_VER || {};
-window.BCF_VER.app = '1.7';
+window.BCF_VER.app = '1.8';
 
 /* ---------- State ---------- */
 let allEmployees = [], currentNat = 'TH', selectedEmp = null;
 let selectedSlots = new Set(), selectedType = 'ลากิจ', override = false;
 let dayMode = 'single';          // 'single' | 'range'
 let holidayMap = {};             // 'yyyy-MM-dd' -> ชื่อวันหยุด
+let workOverrideMap = {};        // 'yyyy-MM-dd' -> วันทำงานพิเศษ (สลับวันหยุด): ลาได้ปกติ ไม่ต้องเปิดสวิตช์
 
 /* ---------- Helpers (ใช้ร่วมกับ admin.js) ---------- */
 const $ = id => document.getElementById(id);
@@ -176,7 +177,10 @@ function updateHourTotal(){
 
 /* ---------- วันหยุดบริษัท ---------- */
 async function loadHolidays(){
-  try{ const r=await apiGet('holidays'); if(r.ok){ holidayMap={}; (r.holidays||[]).forEach(h=>{holidayMap[h.date]=h.name;}); } }catch(e){}
+  try{ const r=await apiGet('holidays'); if(r.ok){
+    holidayMap={}; (r.holidays||[]).forEach(h=>{holidayMap[h.date]=h.name;});
+    workOverrideMap={}; (r.work_overrides||[]).forEach(w=>{workOverrideMap[w.date]=w.name||'วันทำงานพิเศษ';});
+  } }catch(e){}
 }
 
 /* ---------- โหมดวันเดียว/หลายวัน ---------- */
@@ -203,9 +207,12 @@ function updateStatus(){
   else if(d===t){cls='st-same';txt='ลากระทันหัน (วันนี้)';mm='ယနေ့ ခွင့်';}
   else{cls='st-back';txt='ลาย้อนหลัง';mm='နောက်ကြောင်းပြန် ခွင့်';}
   sw.innerHTML='<div class="statusBadge '+cls+'"><span class="st-dot"></span>'+txt+' · <span style="font-weight:500">'+mm+'</span></div>';
-  const dt=new Date(d+'T00:00:00'), hol=holidayMap[d];
+  const dt=new Date(d+'T00:00:00'), hol=holidayMap[d], isWork=!!workOverrideMap[d];
   override=false;
-  if(hol){
+  if(isWork){
+    // วันทำงานพิเศษ (สลับวันหยุด) → ลาได้ปกติ ไม่ต้องเปิดสวิตช์
+    suw.innerHTML='<div style="margin-top:12px;padding:11px 13px;background:var(--green-bg);border:1.5px solid var(--green-line);border-radius:11px;font-size:13px;color:var(--green);font-weight:600">🔁 วันนี้เป็น<b>วันทำงานพิเศษ</b> (สลับวันหยุด) — ลาได้ตามปกติ</div>';
+  } else if(hol){
     suw.innerHTML=overrideBox('วันนี้เป็น<b>วันหยุด ('+esc(hol)+')</b> ปกติไม่ต้องลา<br>เปิดสวิตช์ถ้าวันนี้ต้องมาทำงาน','ဒီနေ့ ပိတ်ရက်ဖြစ်ရင် ဖွင့်ပါ');
     $('daySwitch').onchange=ev=>{override=ev.target.checked;};
   } else if(dt.getDay()===0){
@@ -243,8 +250,10 @@ function buildLeavePayload(){
   const date=$('leaveDate').value;
   if(!date){toast('กรุณาเลือกวันที่',true);return null;}
   const dt=new Date(date+'T00:00:00');
-  if(holidayMap[date] && !override){toast('วันนี้เป็นวันหยุด ('+holidayMap[date]+') — เปิดสวิตช์ถ้าต้องมาทำงาน',true);return null;}
-  if(dt.getDay()===0 && !override){toast('วันอาทิตย์เป็นวันหยุด — เปิดสวิตช์ถ้าต้องมาทำงาน',true);return null;}
+  if(!workOverrideMap[date]){   // วันทำงานพิเศษ (สลับวันหยุด) = ส่งได้เลย ไม่ต้องเปิดสวิตช์
+    if(holidayMap[date] && !override){toast('วันนี้เป็นวันหยุด ('+holidayMap[date]+') — เปิดสวิตช์ถ้าต้องมาทำงาน',true);return null;}
+    if(dt.getDay()===0 && !override){toast('วันอาทิตย์เป็นวันหยุด — เปิดสวิตช์ถ้าต้องมาทำงาน',true);return null;}
+  }
   const t=todayStr();
   const stTxt=date>t?'🟢 ลาล่วงหน้า':(date===t?'🟡 ลากระทันหัน (วันนี้)':'🔴 ลาย้อนหลัง');
   const sm='<div class="row"><span class="k">ชื่อ</span><span class="v">'+esc(nm)+'</span></div>'+
